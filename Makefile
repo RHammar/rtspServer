@@ -1,8 +1,14 @@
 SRCS = server.c manage.c rtsp.c
 PROGS = rtsp_server
+LDFLAGS =-g
+CFLAGS =-g
 
 all:
-	gcc -g -I/home/rickardh/Development/gst-rtsp-server-1.2.3/ -L/home/rickardh/Development/gst-rtsp-server-1.2.3/gst/rtsp-server/.libs  $(SRCS) -o $(PROGS) `pkg-config gstreamer-1.0 gio-2.0 libsoup-2.4 --libs --cflags` -lgstrtspserver-1.0 -levent
+	gcc $(CFLAGS) `pkg-config --cflags glib-2.0 gstreamer-1.0 gio-2.0 libsoup-2.4 gstreamer-rtsp-1.0`\
+	 $(SRCS) -o $(PROGS)\
+	 `pkg-config glib-2.0 gstreamer-1.0 gio-2.0 libsoup-2.4 --libs`\
+	 -lgstrtspserver-1.0 -levent -lsoup-2.4 $(LDFLAGS)\
+
 
 clean:
 	rm -rf $(PROGS)
