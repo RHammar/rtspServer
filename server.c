@@ -12,9 +12,9 @@ int main(int argc, char *argv[])
   char *manage = "127.0.0.1:7777";
 
   PDEBUG("rtsp_start");
+  loop = g_main_loop_new(NULL, FALSE);
   server = rtsp_start(argc, argv);
   service = manage_start(server);
-  loop = g_main_loop_new(NULL, FALSE);
   g_main_loop_run(loop);
 
   /* Stop service when out of the main loop */

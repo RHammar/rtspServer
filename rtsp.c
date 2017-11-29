@@ -2,8 +2,10 @@
 
 #include "rtsp.h"
 #include "log.h"
+#include "rtsp-media-factory-custom.h"
+#include "pipelinemonitor.h"
 
-GstRTSPServer* rtsp_start(int argc, char *argv[])
+GstRTSPServer *rtsp_start(int argc, char *argv[])
 {
   GstRTSPServer *server;
 
@@ -15,39 +17,48 @@ GstRTSPServer* rtsp_start(int argc, char *argv[])
   /* start serving */
   PDEBUG("rtsp server started");
 
-/* attach the server to the default maincontext */
+  /* attach the server to the default maincontext */
   gst_rtsp_server_attach(server, NULL);
   return server;
 }
 
-int rtsp_setup_stream(GstRTSPServer *server, char *pipeline, char *path)
+int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
 {
   GstRTSPMountPoints *mounts;
+  // GstRTSPMediaFactoryCustom *factory;
   GstRTSPMediaFactory *factory;
   GType type;
   // GstRTSPMedia media;
   GstRTSPLowerTrans protocols;
   GObject *value;
-
+  GstRTSPUrl *url;
+  GstElement *pipeline_element;
 
   /* get the mount points for this server, every server has a default object
    * that be used to map uri mount points to media factories */
   g_object_get(server, "address", &value, NULL);
-  PDEBUG("address: %s", (char *) value);
+  PDEBUG("address: %s", (char *)value);
   mounts = gst_rtsp_server_get_mount_points(server);
 
   /* make a media factory for a test stream. The default media factory can use
    * gst-launch syntax to create pipelines.
    * any launch line works as long as it contains elements named pay%d. Each
    * element with pay%d names will be a stream */
-  factory = gst_rtsp_media_factory_new();
-  gst_rtsp_media_factory_set_shared (factory, TRUE);
-  // gst_rtsp_media_factory_set_protocols(factory, GST_RTSP_LOWER_TRANS_HTTP);
-  gst_rtsp_media_factory_set_launch(factory, pipeline);
 
-  protocols = gst_rtsp_media_factory_get_protocols(factory);
+  // factory = gst_rtsp_media_factory_custom_new();
+  // gst_rtsp_media_factory_custom_set_bin(factory, pipeline);
+
+  factory = gst_rtsp_media_factory_new();
+  gst_rtsp_media_factory_set_launch(factory, pipeline);
+  pipeline_element = gst_rtsp_media_factory_create_element(factory, url);
+  monitor_pipeline(pipeline_element);
+  // gst_rtsp_media_factory_set_shared (factory, TRUE);
+  // gst_rtsp_media_factory_set_protocols(factory, GST_RTSP_LOWER_TRANS_HTTP);
+  // gst_rtsp_media_factory_custom_set_launch(factory, pipeline);
+
+  // protocols = gst_rtsp_media_factory_get_protocols(factory);
   /* attach the test factory to the /test url */
-  gst_rtsp_mount_points_add_factory(mounts, path, factory);
+  gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
 
   PDEBUG("protocols: %d", protocols);
   /* don't need the ref to the mapper anymore */

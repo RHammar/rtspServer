@@ -8,6 +8,9 @@
 #include "manage.h"
 #include "log.h"
 #include "rtsp.h"
+#include "pipelinebuilder.h"
+#include "pipelinemonitor.h"
+
 /*
  * Length of buffers for incoming RTSP commands, the management
  * protocol and viewer side RTCP packets.
@@ -32,6 +35,9 @@ typedef struct Client
   gchar message[BLOCK_SIZE];
   GstRTSPServer *server;
 } Client;
+
+static void handle_new_pad (GstElement * decodebin, GstPad * pad,
+    GstElement * target);
 
 static gboolean
 on_timeout(Client *client)
@@ -86,15 +92,16 @@ start_callback(SoupServer *server,
         soup_message_set_status (msg, SOUP_STATUS_NOT_IMPLEMENTED);
         return;
     }
+
   //Working live pipeline
-  char *pipeline = "( rtspsrc location=rtsph://camroot:password@172.25.100.136/axis-media/media.amp?resolution=1920x1080&videocodec=h264&fps=25 ! queue ! rtph264depay ! queue ! rtph264pay name=pay0 pt=96 )";
+  char *pipeline = "( rtspsrc location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=1920x1080&videocodec=h264&fps=25 ! queue ! rtph264depay ! queue ! rtph264pay name=pay0 pt=96 )";
 
   // run decodebin
   // char *pipeline = "( rtspsrc protocols=4 location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=320x240&videocodec=h264&fps=7 ! queue ! rtph264depay ! avdec_h264 debug-mv=true ! videoconvert ! queue ! x264enc tune=2 ! queue ! rtph264pay name=pay0 pt=96 )";
 
   // run decodebin + rippletv
   // char *pipeline = "( rtspsrc protocols=4 location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=320x240&videocodec=h264&fps=7 ! queue ! rtph264depay ! decodebin ! videoconvert ! queue ! rippletv ! queue ! x264enc tune=4 ! queue ! rtph264pay name=pay0 pt=96 )";
-  rtsp_setup_stream(user_data, pipeline, "/live");
+  // rtsp_setup_stream(user_data, pipeline, "/live");
   soup_message_set_status (msg, SOUP_STATUS_OK);
   soup_message_set_response (msg, "text/plain", SOUP_MEMORY_COPY,
                              MANAGE_OK, strlen(MANAGE_OK));
@@ -108,15 +115,32 @@ startfile_callback(SoupServer *server,
                SoupClientContext *context,
                gpointer user_data)
 {
+
+
+  // GstElement *pipeline;
+  /* Build the pipeline */
+  // pipeline = createOggPipeline();
+  // videoqueue = create_element ("queue", NULL);
+  // theorapay = create_element ("rtptheorapay", "pay0");
+  // g_object_set (theorapay, "pt", "96", NULL);
+  // audioqueue = create_element ("queue", NULL);
+  // rtpvorbispay = create_element ("rtpvorbispay", "pay1");
+  // g_object_set (rtpvorbispay, "pt", "97", NULL);
+
+  
+  // gst_element_link_many (oggdemux, videoqueue, theorapay, NULL);
+  // gst_element_link_many (oggdemux, audioqueue, rtpvorbispay, NULL);
   char *pipeline = "(filesrc location=/home/rickardh/Videos/big_buck_bunny.ogv "
       " ! oggdemux name=d "
       "d. ! queue ! rtptheorapay name=pay0 pt=96 "
       "d. ! queue ! rtpvorbispay name=pay1 pt=97 )";
   rtsp_setup_stream(user_data, pipeline, "/vod");
+  // monitor_pipeline(pipeline);
   soup_message_set_status (msg, SOUP_STATUS_OK);
   soup_message_set_response (msg, "text/plain", SOUP_MEMORY_COPY,
                              MANAGE_OK, strlen(MANAGE_OK));
 }
+
 
 GSocketService *manage_start(GstRTSPServer *rtspServer)
 {
