@@ -78,7 +78,7 @@ static void manage_send_response(Client *client,
 }
 
 static void
-start_callback(SoupServer *server,
+live_callback(SoupServer *server,
                SoupMessage *msg,
 		           const char *path,
                GHashTable *query,
@@ -87,21 +87,21 @@ start_callback(SoupServer *server,
 {
   const char *mime_type;
   GByteArray *body;
-  PDEBUG("start_callback");
+  PDEBUG("live_callback");
   if (msg->method != SOUP_METHOD_GET && msg->method != SOUP_METHOD_POST) {
         soup_message_set_status (msg, SOUP_STATUS_NOT_IMPLEMENTED);
         return;
     }
 
   //Working live pipeline
-  char *pipeline = "( rtspsrc location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=1920x1080&videocodec=h264&fps=25 ! queue ! rtph264depay ! queue ! rtph264pay name=pay0 pt=96 )";
+  char *pipeline = "( rtspsrc location=rtsp://camroot:password@172.25.100.128/axis-media/media.amp?resolution=800x600&videocodec=h264&fps=25&audio=1 protocols=4 name=src  src. ! queue ! rtph264depay ! queue ! rtph264pay name=pay0 pt=96 src. ! decodebin ! audioconvert ! audioresample ! voaacenc ! rtpmp4gpay name=pay1 pt=97 )";
 
   // run decodebin
   // char *pipeline = "( rtspsrc protocols=4 location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=320x240&videocodec=h264&fps=7 ! queue ! rtph264depay ! avdec_h264 debug-mv=true ! videoconvert ! queue ! x264enc tune=2 ! queue ! rtph264pay name=pay0 pt=96 )";
 
   // run decodebin + rippletv
   // char *pipeline = "( rtspsrc protocols=4 location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=320x240&videocodec=h264&fps=7 ! queue ! rtph264depay ! decodebin ! videoconvert ! queue ! rippletv ! queue ! x264enc tune=4 ! queue ! rtph264pay name=pay0 pt=96 )";
-  // rtsp_setup_stream(user_data, pipeline, "/live");
+  rtsp_setup_stream(user_data, pipeline, "/live");
   soup_message_set_status (msg, SOUP_STATUS_OK);
   soup_message_set_response (msg, "text/plain", SOUP_MEMORY_COPY,
                              MANAGE_OK, strlen(MANAGE_OK));
@@ -150,7 +150,7 @@ GSocketService *manage_start(GstRTSPServer *rtspServer)
   char *str;
 
   soupServer = soup_server_new (SOUP_SERVER_SERVER_HEADER, "rtsp-httpd ", NULL);
-  soup_server_add_handler (soupServer, "/start", start_callback, rtspServer, NULL);
+  soup_server_add_handler (soupServer, "/live", live_callback, rtspServer, NULL);
   soup_server_add_handler (soupServer, "/startfile", startfile_callback, rtspServer, NULL);
   soup_server_listen_all(soupServer, 1500, 0, &error);
   uris = soup_server_get_uris (soupServer);

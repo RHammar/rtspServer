@@ -1,4 +1,4 @@
-SRCS = server.c manage.c rtsp.c rtsp-media-factory-custom.c pipelinebuilder.c pipelinemonitor.c
+SRCS = server.c manage.c rtsp.c rtsp-media-factory-custom.c pipelinebuilder.c pipelinemonitor.c mediamonitor.c
 PROGS = rtsp_server
 LDFLAGS =-g
 CFLAGS =-g
