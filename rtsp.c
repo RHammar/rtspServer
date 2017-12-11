@@ -83,6 +83,27 @@ int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
   PDEBUG("stream available at 127.0.0.1:8554%s", path);
 }
 
+int rtsp_setup_vod_pipeline(GstRTSPServer *server, char *path)
+{
+  GstRTSPMountPoints *mounts;
+  GstRTSPMediaFactoryCustom *factory;
+  GObject *value;
+
+  g_object_get(server, "address", &value, NULL);
+  PDEBUG("address: %s", (char *)value);
+  mounts = gst_rtsp_server_get_mount_points(server);
+
+  factory = gst_rtsp_media_factory_custom_new();
+  // gst_rtsp_media_factory_custom_set_bin(factory, pipeline);
+  monitor_media(GST_RTSP_MEDIA_FACTORY(factory));
+
+  // protocols = gst_rtsp_media_factory_get_protocols(factory);
+  /* attach the test factory to the /test url */
+  gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
+  g_object_unref(mounts);
+  PDEBUG("stream available at 127.0.0.1:8554%s", path);
+}
+
 static GstRTSPFilterResult
 get_all_clients_filter(GstRTSPServer *server,
                        GstRTSPClient *client,
@@ -113,11 +134,13 @@ client_connected(GstRTSPServer *server,
                  gpointer user_data)
 {
   guint clients;
+  GstRTSPMountPoints * mountpoints;
   clients = get_number_of_clients(server);
   // +1 since current client is not in list yet
   g_print("client connected, total clients: %d\n", clients + 1);
   g_signal_connect(client, "closed", (GCallback)client_closed,
                    server);
+  mountpoints = gst_rtsp_client_get_mount_points(client);
 }
 
 static void

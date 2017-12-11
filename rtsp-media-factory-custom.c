@@ -1,4 +1,5 @@
 #include "rtsp-media-factory-custom.h"
+#include "pipelinebuilder.h"
 
 G_DEFINE_TYPE(GstRTSPMediaFactoryCustom, gst_rtsp_media_factory_custom, GST_TYPE_RTSP_MEDIA_FACTORY /*parent class*/);
 
@@ -45,24 +46,42 @@ void gst_rtsp_media_factory_custom_set_bin(GstRTSPMediaFactoryCustom *factory,
   factory->bin = bin;
 }
 
+static void
+no_more_pads_cb (GstElement * uribin, GstElement * element)
+{
+    g_print("no-more-pads factory\n");
+      gst_element_no_more_pads (element);
+}
+
 static GstElement *
 rtsp_media_factory_custom_create_element(GstRTSPMediaFactory *factory, const GstRTSPUrl *url)
 {
-  GstElement *topbin, *element;
+  GstElement *topbin, *element, *pipeline;
 
   g_print("custom create element\n");
 
   topbin = gst_bin_new("GstRTSPMediaFactoryCustom");
-  if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL)
-  {
-    goto error;
-  }
-  else
-  {
-    element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
-    gst_bin_add(GST_BIN_CAST(topbin), element);
-  }
+  g_object_set(topbin, "name", "customtopbin", NULL);
+  /* our bin will dynamically expose payloaded pads */
+  // element = gst_bin_new ("dynpay0");
+  // pipeline = createOggPipeline();
+  pipeline = createMp4Pipeline();
+  //g_signal_connect (pipeline, "no-more-pads", (GCallback) no_more_pads_cb,
+  //          pipeline);
+  //gst_bin_add (GST_BIN_CAST(element), pipeline);
+  gst_bin_add(GST_BIN_CAST(topbin), pipeline);
+  // if (GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin == NULL)
+  // {
+  //   goto error;
+  // }
+  // else
+  // {
+  //   element = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
+  //   gst_bin_add(GST_BIN_CAST(topbin), element);
+  // }
   return topbin;
+  //return element;
+  // return GST_RTSP_MEDIA_FACTORY_CUSTOM(factory)->bin;
 
 error:
 

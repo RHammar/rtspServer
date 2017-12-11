@@ -6,6 +6,7 @@
 
 #include <gio/gio.h>
 #include <gst/rtsp-server/rtsp-server.h>
+#include <libsoup/soup.h>
 
 /*
  * HTML response codes.
@@ -21,6 +22,6 @@
 #define MANAGE_OK               "OK 200\n"
 #define MANAGE_ERR              "ERROR 400\n"
 
-GSocketService * manage_start(GstRTSPServer *server);
+SoupServer * manage_start(GstRTSPServer *server);
 
 #endif /* __MANAGE_H__ */

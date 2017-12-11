@@ -6,5 +6,8 @@
 GstElement *
 createOggPipeline();
 
+GstElement *
+createMp4Pipeline();
+
 #endif /* __PIPELINEBUILDER
 PIPELINEBUILDER_H__ */
