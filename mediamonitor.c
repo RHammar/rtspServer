@@ -2,8 +2,10 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include "mediamonitor.h"
+#include "pipelinemonitor.h"
 #include "log.h"
 #include "rtsp-media-factory-custom.h"
+#include "server.h"
 
 GList *media_list = NULL;
 
@@ -30,12 +32,12 @@ media_new_state(GstRTSPMedia *,
                 gint,
                 gpointer);
 
-void monitor_media(GstRTSPMediaFactory *factory)
+void monitor_media(ServerData *serverdata, GstRTSPMediaFactory *factory)
 {
   g_signal_connect(factory, "media-configure", (GCallback)media_configure,
-                   NULL);
+                   serverdata);
   g_signal_connect(factory, "media-constructed", (GCallback)media_constructed,
-                   NULL);
+                   serverdata);
 };
 
 /* called when a new media pipeline is constructed */
@@ -52,6 +54,8 @@ media_constructed(GstRTSPMediaFactory *factory,
                   GstRTSPMedia *media,
                   gpointer user_data)
 {
+  GstElement * mediaElement;
+  ServerData* serverdata = (ServerData*) user_data;
   PDEBUG("media constructed");
   media_list = g_list_append(media_list, media);
   gst_rtsp_media_set_shared(media, TRUE);
@@ -61,7 +65,8 @@ media_constructed(GstRTSPMediaFactory *factory,
                    NULL);
   g_signal_connect(media, "new-state", (GCallback)media_new_state,
                    NULL);
-  gst_rtsp_media_get_element(media);
+  mediaElement = gst_rtsp_media_get_element(media);
+  // monitor_pipeline(serverdata,  GST_ELEMENT_PARENT(mediaElement));
 }
 
 static void

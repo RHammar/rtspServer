@@ -64,7 +64,7 @@ int rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, const gcha
   serverdata->mountPoints = g_list_append(serverdata->mountPoints, mountpoint);
   mounts = gst_rtsp_server_get_mount_points(serverdata->server);
   gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
-  monitor_media(GST_RTSP_MEDIA_FACTORY(factory));
+  monitor_media(serverdata, GST_RTSP_MEDIA_FACTORY(factory));
   g_object_unref(mounts);
 }
 
@@ -97,7 +97,7 @@ int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
   factory = gst_rtsp_media_factory_new();
   gst_rtsp_media_factory_set_shared(factory, TRUE);
   gst_rtsp_media_factory_set_launch(factory, pipeline);
-  monitor_media(factory);
+  monitor_media(NULL, factory);
   // pipeline_element = gst_rtsp_media_factory_create_element(factory, url);
   // media = gst_rtsp_media_factory_construct(factory, url);
   // pipeline_element = gst_rtsp_media_get_element(media);
@@ -117,12 +117,12 @@ int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
   PDEBUG("stream available at 127.0.0.1:8554%s", path);
 }
 
-int rtsp_setup_vod_pipeline(ServerData *server, char *path)
+int rtsp_setup_vod_pipeline(ServerData *serverdata, char *path)
 {
   GstRTSPMountPoints *mounts;
   GstRTSPMediaFactoryCustom *factory;
   GObject *value;
-  GstRTSPServer *rtspServer = server->server;
+  GstRTSPServer *rtspServer = serverdata->server;
 
   g_object_get(rtspServer, "address", &value, NULL);
   PDEBUG("address: %s", (char *)value);
@@ -130,7 +130,7 @@ int rtsp_setup_vod_pipeline(ServerData *server, char *path)
 
   factory = gst_rtsp_media_factory_custom_new();
   // gst_rtsp_media_factory_custom_set_bin(factory, pipeline);
-  monitor_media(GST_RTSP_MEDIA_FACTORY(factory));
+  monitor_media(serverdata, GST_RTSP_MEDIA_FACTORY(factory));
 
   // protocols = gst_rtsp_media_factory_get_protocols(factory);
   /* attach the test factory to the /test url */

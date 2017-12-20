@@ -3,8 +3,9 @@
 
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
+#include "server.h"
 
 void
-monitor_media(GstRTSPMediaFactory *factory);
+monitor_media(ServerData *serverdata, GstRTSPMediaFactory *factory);
 
 #endif /* __MEDIAMONITOR_H__ */
