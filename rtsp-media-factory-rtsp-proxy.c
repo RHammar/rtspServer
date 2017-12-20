@@ -2,16 +2,17 @@
 #include <stdio.h>
 #include <gst/gst.h>
 
-#include "rtsp-media-factory-custom.h"
-#include "pipelinebuilder.h"
+#include "rtsp-media-factory-rtsp-proxy.h"
+#include "rtspproxypipeline.h"
 #include "log.h"
-G_DEFINE_TYPE(GstRTSPMediaFactoryCustom, gst_rtsp_media_factory_custom, GST_TYPE_RTSP_MEDIA_FACTORY /*parent class*/);
+
+G_DEFINE_TYPE(GstRTSPMediaFactoryRtspProxy, gst_rtsp_media_factory_rtsp_proxy, GST_TYPE_RTSP_MEDIA_FACTORY /*parent class*/);
 
 static GstElement *
 rtsp_media_factory_custom_create_element(GstRTSPMediaFactory *factory, const GstRTSPUrl *url);
 
 static void
-gst_rtsp_media_factory_custom_class_init(GstRTSPMediaFactoryCustomClass *klass)
+gst_rtsp_media_factory_rtsp_proxy_class_init(GstRTSPMediaFactoryRtspProxyClass *klass)
 {
   GstRTSPMediaFactoryClass *gstrtspmediafactory_class;
 
@@ -20,34 +21,38 @@ gst_rtsp_media_factory_custom_class_init(GstRTSPMediaFactoryCustomClass *klass)
 }
 
 static void
-gst_rtsp_media_factory_custom_init(GstRTSPMediaFactoryCustom *factory)
+gst_rtsp_media_factory_rtsp_proxy_init(GstRTSPMediaFactoryRtspProxy *factory)
 {
-  factory->bin = NULL;
+  factory->uri = NULL;
+  factory->proxy = NULL;
 }
 
-GstRTSPMediaFactoryCustom *
-gst_rtsp_media_factory_custom_new(void)
+GstRTSPMediaFactoryRtspProxy *
+gst_rtsp_media_factory_rtsp_proxy_new(void)
 {
-  GstRTSPMediaFactoryCustom *result;
+  GstRTSPMediaFactoryRtspProxy *result;
 
-  result = g_object_new(GST_TYPE_RTSP_MEDIA_FACTORY_CUSTOM, NULL);
+  result = g_object_new(GST_TYPE_RTSP_MEDIA_FACTORY_RTSP_PROXY, NULL);
 
   return result;
 }
 
-void gst_rtsp_media_factory_custom_set_bin(GstRTSPMediaFactoryCustom *factory,
-                                           GstElement *bin)
+void gst_rtsp_media_factory_rtsp_proxy_configure(GstRTSPMediaFactoryRtspProxy *factory, const gchar *uri, const gchar *proxy)
 {
+  PDEBUG("configuring pipeline");
+  g_return_if_fail(GST_IS_RTSP_MEDIA_FACTORY_RTSP_PROXY(factory));
+  g_return_if_fail(uri != NULL);
 
-  PDEBUG("setting pipeline");
-  g_return_if_fail(GST_IS_RTSP_MEDIA_FACTORY_CUSTOM(factory));
-  g_return_if_fail(bin != NULL);
-
-  if (factory->bin)
-    gst_object_unref(factory->bin);
-  if (bin)
-    gst_object_ref(bin);
-  factory->bin = bin;
+  if(factory->uri != NULL) {
+    g_free(factory->uri);
+  }
+  if(factory->proxy != NULL) {
+    g_free(factory->proxy);
+  }
+  factory->uri = strdup(uri);
+  if(proxy) {
+    factory->proxy = strdup(proxy);
+  }
 }
 
 static void
@@ -60,17 +65,17 @@ no_more_pads_cb(GstElement *uribin, GstElement *element)
 static GstElement *
 rtsp_media_factory_custom_create_element(GstRTSPMediaFactory *factory, const GstRTSPUrl *url)
 {
-  GstRTSPMediaFactoryCustom *factoryCustom = GST_RTSP_MEDIA_FACTORY_CUSTOM(factory);
+  GstRTSPMediaFactoryRtspProxy *factoryCustom = GST_RTSP_MEDIA_FACTORY_RTSP_PROXY(factory);
   GstElement *topbin, *element, *pipeline;
   PDEBUG("custom create element");
   // if (!factoryCustom->bin)
   // {
-  topbin = gst_bin_new("GstRTSPMediaFactoryCustom");
+  topbin = gst_bin_new("GstRTSPMediaFactoryRtspProxy");
   g_object_set(topbin, "name", "customtopbin", NULL);
   /* our bin will dynamically expose payloaded pads */
   // element = gst_bin_new ("dynpay0");
   // pipeline = createOggPipeline();
-  pipeline = createMp4Pipeline();
+  pipeline = createRtspProxyPipeline(factoryCustom->uri, factoryCustom->proxy);
   //g_signal_connect (pipeline, "no-more-pads", (GCallback) no_more_pads_cb,
   //          pipeline);
   //gst_bin_add (GST_BIN_CAST(element), pipeline);

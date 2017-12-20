@@ -2,6 +2,8 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include "mediamonitor.h"
+#include "log.h"
+#include "rtsp-media-factory-custom.h"
 
 GList *media_list = NULL;
 
@@ -42,7 +44,7 @@ media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media,
                 gpointer user_data)
 {
   guint nbrstreams = gst_rtsp_media_n_streams(media);
-  g_print("media_configure, %d streams\n", nbrstreams);
+  PDEBUG("media_configure, %d streams", nbrstreams);
 }
 
 static void
@@ -50,7 +52,7 @@ media_constructed(GstRTSPMediaFactory *factory,
                   GstRTSPMedia *media,
                   gpointer user_data)
 {
-  g_print("media constructed\n");
+  PDEBUG("media constructed");
   media_list = g_list_append(media_list, media);
   gst_rtsp_media_set_shared(media, TRUE);
   g_signal_connect(media, "new-stream", (GCallback)new_stream,
@@ -66,7 +68,7 @@ static void
 new_stream(GstRTSPMedia *media, GstRTSPStream *stream,
            gpointer user_data)
 {
-  g_print("new stream\n");
+  PDEBUG("new stream");
 }
 
 static void
@@ -74,7 +76,7 @@ media_prepared(GstRTSPMedia *media, gpointer user_data)
 {
   GstElement *topbin;
 
-  g_print("media prepared\n");
+  PDEBUG("media prepared");
   // topbin = GST_ELEMENT_PARENT(gst_rtsp_media_get_element(media));
   // GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(topbin), GST_DEBUG_GRAPH_SHOW_ALL, "media");
 }
@@ -86,10 +88,11 @@ media_new_state(GstRTSPMedia *media,
 {
   GstElement *topbin;
 
-  g_print("new state: %s\n", gst_element_state_get_name((GstState)state));
+  PDEBUG("new state: %s", gst_element_state_get_name((GstState)state));
   if (state == GST_STATE_PLAYING)
   {
     topbin = GST_ELEMENT_PARENT(gst_rtsp_media_get_element(media));
     GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(topbin), GST_DEBUG_GRAPH_SHOW_ALL, "media");
   }
 }
+

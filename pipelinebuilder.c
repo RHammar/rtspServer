@@ -1,6 +1,7 @@
 #include <string.h>
 #include <gst/gst.h>
 #include "pipelinebuilder.h"
+#include "log.h"
 
 static void
 handle_new_pad_mp4(GstElement *decodebin, GstPad *pad, GstElement *pipeline);
@@ -29,7 +30,7 @@ create_element(const gchar *type, const gchar *name)
   e = gst_element_factory_make(type, name);
   if (!e)
   {
-    g_print("Failed to create element %s\n", type);
+    PDEBUG("Failed to create element %s", type);
     return NULL;
   }
 
@@ -81,19 +82,19 @@ add_ogg_video_payloader(GstElement *pipeline, GstPad *pad)
   gst_bin_add_many(GST_BIN(pipeline), videoqueue, theorapay, NULL);
   if (!gst_element_link_many(videoqueue, theorapay, NULL))
   {
-    g_print("failed to link\n");
+    PDEBUG("failed to link");
   }
 
   sink = gst_element_get_static_pad(videoqueue, "sink");
   if (gst_pad_is_linked(pad))
   {
-    g_print("pad is linked\n");
+    PDEBUG("pad is linked");
   }
   gst_pad_link(pad, sink);
   // ghostPad = gst_ghost_pad_new("sink", pad);
   // if (!gst_element_add_pad(element, ghostPad))
   // {
-  //   g_print("failed to add pad\n");
+  //   PDEBUG("failed to add pad");
   // }
   // gst_object_unref(pad);
 
@@ -120,16 +121,16 @@ handle_new_pad(GstElement *decodebin, GstPad *pad, GstElement *pipeline)
   caps = gst_pad_get_current_caps(pad);
   str = gst_caps_get_structure(caps, 0);
   name = gst_structure_get_name(str);
-  g_print("got caps: %s\n", name);
+  PDEBUG("got caps: %s", name);
   /* Check the caps type in the enclosed structure */
   if (strcmp(name, "audio/x-vorbis") == 0)
   {
-    g_print("got audio\n");
+    PDEBUG("got audio");
     add_ogg_audio_payloader(pipeline, pad);
   }
   else if (strcmp(name, "video/x-theora") == 0)
   {
-    g_print("got video\n");
+    PDEBUG("got video");
     add_ogg_video_payloader(pipeline, pad);
   }
 
@@ -167,8 +168,8 @@ link_error:
   caps = gst_pad_get_current_caps(pad);
   capsstr = gst_caps_to_string(caps);
   pad_name = gst_pad_get_name(pad);
-  g_print("Failed to link decodebin pad %s with caps %s to output chain\n",
-          pad_name, capsstr);
+  PDEBUG("Failed to link decodebin pad %s with caps %s to output chain",
+         pad_name, capsstr);
 
   gst_caps_unref(caps);
   g_free(capsstr);
@@ -180,7 +181,7 @@ link_error:
 }
 
 state_change_error:
-  g_print("Failed to set the state of output chain\n");
+  PDEBUG("Failed to set the state of output chain");
   gst_bin_remove(GST_BIN_CAST(pipeline), target);
   return;
 }
@@ -194,17 +195,17 @@ parse_launch()
 }
 
 static void
-no_more_pads_ogg_cb (GstElement * oggmux, GstElement * element)
+no_more_pads_ogg_cb(GstElement *oggmux, GstElement *element)
 {
-    g_print("no-more-pads\n");
-    gst_element_no_more_pads (element);
+  PDEBUG("no-more-pads");
+  gst_element_no_more_pads(element);
 }
 
 GstElement *
 createOggPipeline()
 {
   GstElement *pipeline, *src, *oggdemux, *oggparse;
-  g_print("creating ogg pipeline\n");
+  PDEBUG("creating ogg pipeline");
 
   // return parse_launch();
   // GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, "gst_parse_pipe");
@@ -220,8 +221,8 @@ createOggPipeline()
   gst_bin_add_many(GST_BIN(pipeline), src, oggparse, oggdemux, NULL);
   gst_element_link_many(src, oggdemux, NULL);
   g_signal_connect(oggdemux, "pad-added", G_CALLBACK(handle_new_pad), pipeline);
-  g_signal_connect(oggdemux, "no-more-pads", (GCallback) no_more_pads_ogg_cb,
-          pipeline);
+  g_signal_connect(oggdemux, "no-more-pads", (GCallback)no_more_pads_ogg_cb,
+                   pipeline);
 
   return pipeline;
 }
@@ -246,18 +247,19 @@ add_mp4_audio_payloader(GstElement *pipeline, GstPad *pad)
 
   /* now expose the srcpad of the payloader as a ghostpad with the same name
    * as the decoder pad name. */
-  srcpad = gst_element_get_static_pad (rtpmp4apay, "src");
-  padname = gst_pad_get_name (pad);
-  ghostpad = gst_ghost_pad_new (padname, srcpad);
-  gst_object_unref (srcpad);
-  g_free (padname);
+  srcpad = gst_element_get_static_pad(rtpmp4apay, "src");
+  padname = gst_pad_get_name(pad);
+  ghostpad = gst_ghost_pad_new(padname, srcpad);
+  gst_object_unref(srcpad);
+  g_free(padname);
 
-  gst_element_sync_state_with_parent(audioqueue);
-  gst_element_sync_state_with_parent(rtpmp4apay);
-  
-  gst_pad_set_active (ghostpad, TRUE);
-  gst_element_add_pad (pipeline, ghostpad);
+  //gst_element_sync_state_with_parent(audioqueue);
+  //gst_element_sync_state_with_parent(rtpmp4apay);
+  //gst_element_set_state (audioqueue, GST_STATE_PAUSED);
+  gst_element_set_state(pipeline, GST_STATE_PAUSED);
 
+  gst_pad_set_active(ghostpad, TRUE);
+  gst_element_add_pad(pipeline, ghostpad);
 }
 
 static void
@@ -274,24 +276,24 @@ add_mp4_video_payloader(GstElement *pipeline, GstPad *pad)
   gst_bin_add_many(GST_BIN(pipeline), videoqueue, rtph264pay, NULL);
   if (!gst_element_link_many(videoqueue, rtph264pay, NULL))
   {
-    g_print("failed to link\n");
+    PDEBUG("failed to link");
   }
-  gst_element_set_state (videoqueue, GST_STATE_PLAYING);
-  gst_element_set_state (rtph264pay, GST_STATE_PLAYING);
+  gst_element_set_state(pipeline, GST_STATE_PAUSED);
+  // gst_element_set_state (videoqueue, GST_STATE_PAUSED);
+  // gst_element_set_state (rtph264pay, GST_STATE_PAUSED);
   sinkpad = gst_element_get_static_pad(videoqueue, "sink");
   gst_pad_link(pad, sinkpad);
 
   /* now expose the srcpad of the payloader as a ghostpad with the same name
    * as the decoder pad name. */
-  srcpad = gst_element_get_static_pad (rtph264pay, "src");
-  padname = gst_pad_get_name (pad);
-  ghostpad = gst_ghost_pad_new (padname, srcpad);
-  gst_object_unref (srcpad);
-  g_free (padname);
+  srcpad = gst_element_get_static_pad(rtph264pay, "src");
+  padname = gst_pad_get_name(pad);
+  ghostpad = gst_ghost_pad_new(padname, srcpad);
+  gst_object_unref(srcpad);
+  g_free(padname);
 
-  gst_pad_set_active (ghostpad, TRUE);
-  gst_element_add_pad (pipeline, ghostpad);
-
+  gst_pad_set_active(ghostpad, TRUE);
+  gst_element_add_pad(pipeline, ghostpad);
 
   GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(GST_ELEMENT_PARENT(pipeline)), GST_DEBUG_GRAPH_SHOW_ALL, "mp4");
 }
@@ -306,37 +308,37 @@ handle_new_pad_mp4(GstElement *decodebin, GstPad *pad, GstElement *pipeline)
   caps = gst_pad_get_current_caps(pad);
   str = gst_caps_get_structure(caps, 0);
   name = gst_structure_get_name(str);
-  g_print("got caps: %s\n", name);
+  PDEBUG("got caps: %s", name);
   if (strcmp(name, "audio/mpeg") == 0)
   {
-    g_print("got audio\n");
+    PDEBUG("got audio");
     add_mp4_audio_payloader(pipeline, pad);
   }
   else if (strcmp(name, "video/x-h264") == 0)
   {
-    g_print("got video\n");
+    PDEBUG("got video");
     add_mp4_video_payloader(pipeline, pad);
   }
 }
 
 static void
-no_more_pads_mp4_cb (GstElement * qtdemux, GstElement * element)
+no_more_pads_mp4_cb(GstElement *qtdemux, GstElement *element)
 {
-    g_print("no-more-pads\n");
-    gst_element_no_more_pads (element);
+  PDEBUG("no-more-pads");
+  gst_element_no_more_pads(element);
+  GST_DEBUG_BIN_TO_DOT_FILE(GST_BIN(element), GST_DEBUG_GRAPH_SHOW_ALL, "file-media");
 }
-
 
 GstElement *
 createMp4Pipeline()
 {
   GstElement *pipeline, *src, *qtdemux, *element;
 
-  g_print("creating mp4 pipeline\n");
+  PDEBUG("creating mp4 pipeline");
 
   // return parse_launch();
   /* our bin will dynamically expose payloaded pads */
-  pipeline = gst_bin_new ("dynpay0");
+  pipeline = gst_bin_new("dynpay0");
   //pipeline = gst_bin_new(NULL);
   //g_object_set(pipeline, "name", "mp4bin", NULL);
   src = create_element("filesrc", "src");
@@ -345,8 +347,8 @@ createMp4Pipeline()
   gst_bin_add_many(GST_BIN(pipeline), src, qtdemux, NULL);
   gst_element_link_many(src, qtdemux, NULL);
   g_signal_connect(qtdemux, "pad-added", G_CALLBACK(handle_new_pad_mp4), pipeline);
-  g_signal_connect (qtdemux, "no-more-pads", (GCallback) no_more_pads_mp4_cb,
-          pipeline);
+  g_signal_connect(qtdemux, "no-more-pads", (GCallback)no_more_pads_mp4_cb,
+                   pipeline);
   //gst_bin_add (GST_BIN_CAST (element), pipeline);
   return pipeline;
 

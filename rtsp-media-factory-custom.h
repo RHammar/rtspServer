@@ -59,4 +59,6 @@ void gst_rtsp_media_factory_custom_set_bin(GstRTSPMediaFactoryCustom *factory,
 
 G_END_DECLS
 
+void send_double_speed_event (gdouble rate);
+
 #endif /* __GST_RTSP_MEDIA_FACTORY_CUSTOM_H__ */

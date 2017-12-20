@@ -1,9 +1,21 @@
 #include <gst/gst.h>
 
+#include "server.h"
 #include "rtsp.h"
 #include "log.h"
 #include "rtsp-media-factory-custom.h"
+#include "rtsp-media-factory-rtsp-proxy.h"
 #include "mediamonitor.h"
+
+typedef struct _CustomData
+{
+  GstElement *pipeline;
+  GstElement *video_sink;
+  GMainLoop *loop;
+
+  gboolean playing; /* Playing or Paused */
+  gdouble rate;     /* Current playback rate (can be negative) */
+} CustomData;
 
 static void
 client_connected(GstRTSPServer *,
@@ -32,6 +44,28 @@ GstRTSPServer *rtsp_start(int argc, char *argv[])
                    NULL);
 
   return server;
+}
+
+int rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, const gchar *proxy, const gchar *path)
+{
+  GstRTSPMountPoints *mounts;
+  GstRTSPServer *rtspserver = serverdata->server;
+  MountPoint * mountpoint;
+  GstRTSPMediaFactoryRtspProxy *factory;
+
+  factory = gst_rtsp_media_factory_rtsp_proxy_new();
+  gst_rtsp_media_factory_rtsp_proxy_configure(factory, uri, proxy);
+  gst_rtsp_media_factory_set_shared(GST_RTSP_MEDIA_FACTORY(factory), TRUE);
+
+  mountpoint = (MountPoint *)g_malloc(sizeof(MountPoint));
+  mountpoint->id = 1;
+  mountpoint->path = path;
+  mountpoint->factory = GST_RTSP_MEDIA_FACTORY(factory);
+  serverdata->mountPoints = g_list_append(serverdata->mountPoints, mountpoint);
+  mounts = gst_rtsp_server_get_mount_points(serverdata->server);
+  gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
+  monitor_media(GST_RTSP_MEDIA_FACTORY(factory));
+  g_object_unref(mounts);
 }
 
 int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
@@ -83,21 +117,97 @@ int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
   PDEBUG("stream available at 127.0.0.1:8554%s", path);
 }
 
-int rtsp_setup_vod_pipeline(GstRTSPServer *server, char *path)
+int rtsp_setup_vod_pipeline(ServerData *server, char *path)
 {
   GstRTSPMountPoints *mounts;
   GstRTSPMediaFactoryCustom *factory;
   GObject *value;
+  GstRTSPServer *rtspServer = server->server;
 
-  g_object_get(server, "address", &value, NULL);
+  g_object_get(rtspServer, "address", &value, NULL);
   PDEBUG("address: %s", (char *)value);
-  mounts = gst_rtsp_server_get_mount_points(server);
+  mounts = gst_rtsp_server_get_mount_points(rtspServer);
 
   factory = gst_rtsp_media_factory_custom_new();
   // gst_rtsp_media_factory_custom_set_bin(factory, pipeline);
   monitor_media(GST_RTSP_MEDIA_FACTORY(factory));
 
   // protocols = gst_rtsp_media_factory_get_protocols(factory);
+  /* attach the test factory to the /test url */
+  gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
+  g_object_unref(mounts);
+  PDEBUG("stream available at 127.0.0.1:8554%s", path);
+}
+
+void send_seek_event(CustomData *data)
+{
+  PDEBUG("send seek event, rate: %f", data->rate);
+  gint64 position = 0;
+  GstFormat format = GST_FORMAT_TIME;
+  GstEvent *seek_event;
+
+  // /* Obtain the current position, needed for the seek event */
+  // // if (!gst_element_query_position (data->pipeline, format, &position)) {
+  // //   PDEBUG ("Unable to retrieve current position.");
+  // //   return;
+  // // }
+
+  /* Create the seek event */
+  if (data->rate > 0)
+  {
+    seek_event = gst_event_new_seek(data->rate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE,
+                                    GST_SEEK_TYPE_SET, position, GST_SEEK_TYPE_NONE, 0);
+  }
+  else
+  {
+    seek_event = gst_event_new_seek(data->rate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE,
+                                    GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_SET, position);
+  }
+
+  // if (data->video_sink == NULL) {
+  //   /* If we have not done so, obtain the sink through which we will send the seek events */
+  //   g_object_get (data->pipeline, "video-sink", &data->video_sink, NULL);
+  // }
+
+  /* Send the event */
+  gst_element_send_event(data->pipeline, seek_event);
+
+  PDEBUG("Current rate: %g", data->rate);
+}
+
+static void
+media_constructed(GstRTSPMediaFactory *factory,
+                  GstRTSPMedia *media,
+                  gpointer user_data)
+{
+  GstElement *topbin;
+  CustomData *data = (CustomData *)user_data;
+  topbin = GST_ELEMENT_PARENT(gst_rtsp_media_get_element(media));
+  data->pipeline = topbin;
+  send_seek_event(data);
+}
+
+void rate_setter(GstRTSPMediaFactory *factory, CustomData *data)
+{
+
+  g_signal_connect(factory, "media-constructed", (GCallback)media_constructed,
+                   data);
+}
+
+int rtsp_setup_vod_rate_pipeline(gdouble rate, GstRTSPServer *server, char *path)
+{
+  GstRTSPMountPoints *mounts;
+  GstRTSPMediaFactoryCustom *factory;
+  GObject *value;
+  CustomData data;
+
+  g_object_get(server, "address", &value, NULL);
+  PDEBUG("address: %s", (char *)value);
+  mounts = gst_rtsp_server_get_mount_points(server);
+
+  factory = gst_rtsp_media_factory_custom_new();
+  data.rate = rate;
+  rate_setter(GST_RTSP_MEDIA_FACTORY(factory), &data);
   /* attach the test factory to the /test url */
   gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
   g_object_unref(mounts);
@@ -112,8 +222,7 @@ get_all_clients_filter(GstRTSPServer *server,
   return GST_RTSP_FILTER_REF;
 }
 
-static guint
-get_number_of_clients(GstRTSPServer *server)
+guint get_number_of_clients(GstRTSPServer *server)
 {
   GList *client_list;
   guint list_length;
@@ -134,10 +243,10 @@ client_connected(GstRTSPServer *server,
                  gpointer user_data)
 {
   guint clients;
-  GstRTSPMountPoints * mountpoints;
+  GstRTSPMountPoints *mountpoints;
   clients = get_number_of_clients(server);
   // +1 since current client is not in list yet
-  g_print("client connected, total clients: %d\n", clients + 1);
+  PDEBUG("client connected, total clients: %d", clients + 1);
   g_signal_connect(client, "closed", (GCallback)client_closed,
                    server);
   mountpoints = gst_rtsp_client_get_mount_points(client);
@@ -148,9 +257,9 @@ client_closed(GstRTSPClient *client,
               gpointer user_data)
 {
   guint clients;
-  GstRTSPServer *server = (GstRTSPServer*) user_data;
+  GstRTSPServer *server = (GstRTSPServer *)user_data;
 
   clients = get_number_of_clients(server);
   // -1 since current client is still in the list
-  g_print("client closed, total clients: %d\n", clients - 1);
+  PDEBUG("client closed, total clients: %d", clients - 1);
 }
