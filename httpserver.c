@@ -1,6 +1,7 @@
-
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <syslog.h>
 #include <libsoup/soup.h>
 #include <json-glib/json-glib.h>
@@ -14,6 +15,17 @@
 
 static void handle_new_pad(GstElement *decodebin, GstPad *pad,
                            GstElement *target);
+
+static gint
+compareMountPoints(gconstpointer a,
+                   gconstpointer b)
+{
+  MountPoint *mounta = (MountPoint*) a;
+  MountPoint *mountb = (MountPoint*) b;
+  if (mounta->id == mountb->id){
+    return 0;
+  }
+}
 
 static void
 live_callback(SoupServer *server,
@@ -33,6 +45,7 @@ live_callback(SoupServer *server,
   const gchar *mountpath = NULL;
   ServerData *serverdata = (ServerData*)user_data;
   GstRTSPServer *rtspserver = serverdata->server;
+  MountPoint *mountpoint;
 
   PDEBUG("live_callback");
   if (msg->method == SOUP_METHOD_PUT)
@@ -59,6 +72,7 @@ live_callback(SoupServer *server,
       PDEBUG("mountpath: %s", mountpath);
     }
     json_reader_end_member (reader);
+
     /* Working live pipeline */
     // char *pipeline = "( rtspsrc location=rtsp://camroot:password@172.25.100.128/axis-media/media.amp?resolution=800x600&videocodec=h264&fps=25&audio=1 protocols=4 name=src  src. ! queue ! rtph264depay ! queue ! rtph264pay name=pay0 pt=96 src. ! decodebin ! audioconvert ! audioresample ! voaacenc ! rtpmp4gpay name=pay1 pt=97 )";
 
@@ -74,22 +88,80 @@ live_callback(SoupServer *server,
     // run decodebin + rippletv
     // char *pipeline = "( rtspsrc protocols=4 location=rtsp://camroot:password@172.25.100.136/axis-media/media.amp?resolution=320x240&videocodec=h264&fps=7 ! queue ! rtph264depay ! decodebin ! videoconvert ! queue ! rippletv ! queue ! x264enc tune=4 ! queue ! rtph264pay name=pay0 pt=96 )";
     // rtsp_setup_stream(rtspserver, pipeline, "/live");
-    rtsp_setup_proxy_stream(serverdata, uri, proxy, mountpath);
+    mountpoint = rtsp_setup_proxy_stream(serverdata, uri, proxy, mountpath);
+    if (!mountpoint) {
+      goto error;
+    }
+    gchar *uri;
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object (builder);
+    json_builder_set_member_name (builder, "id");
+    json_builder_add_int_value (builder, mountpoint->id);
+    json_builder_set_member_name (builder, "uri");
+    gchar *address = gst_rtsp_server_get_address(serverdata->server);
+    asprintf(&uri, "%s:%d%s", address, gst_rtsp_server_get_bound_port(serverdata->server), mountpoint->path);
+    json_builder_add_string_value (builder, uri);
+    json_builder_end_object (builder);
+    JsonGenerator *gen = json_generator_new ();
+    JsonNode *root = json_builder_get_root(builder);
+    json_generator_set_root(gen, root);
+    gchar *response = json_generator_to_data(gen, NULL);
+
+    json_node_free(root);
+    g_object_unref(gen);
+    g_object_unref(builder);
+    g_free(address);
+    free(uri);
+
     soup_message_set_status(msg, SOUP_STATUS_OK);
-    soup_message_set_response(msg, "text/plain", SOUP_MEMORY_COPY,
-                              HTTP_OK, strlen(HTTP_OK));
+    soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
+                              response, strlen(response));
+    g_object_unref(parser);
+    g_object_unref(reader);
   }
   else if (msg->method == SOUP_METHOD_GET)
   {
-    // Get status of stream(s)
+    // Get status of mountpoint(s)
     soup_message_set_status(msg, SOUP_STATUS_NOT_IMPLEMENTED);
+  }
+  else if (msg->method == SOUP_METHOD_DELETE)
+  {
+    // Remove mountpoint
+    int id = 0;
+    GList *found = NULL;
+    MountPoint *mountpoint;
+    parser = json_parser_new();
+    json_parser_load_from_data(parser, msg->request_body->data, -1, &error);
+    reader = json_reader_new(json_parser_get_root(parser));
+    if (json_reader_read_member(reader, "id"))
+    {
+      id = json_reader_get_int_value(reader);
+      PDEBUG("id: %d", id);
+    }
+
+    found = g_list_find_custom(serverdata->mountPoints, &id, compareMountPoints);
+    if (found){
+      mountpoint = (MountPoint*) found->data;
+      GstRTSPMountPoints *mounts = gst_rtsp_server_get_mount_points (serverdata->server);
+      gst_rtsp_mount_points_remove_factory(mounts, mountpoint->path);
+      g_object_unref(mounts);
+      // remove from serverdata->mountpoints
+      serverdata->mountPoints = g_list_remove(serverdata->mountPoints, mountpoint);
+      //g_object_unref(mountpoint->factory);
+      free(mountpoint);
+    }
+    soup_message_set_status(msg, SOUP_STATUS_OK);
+    g_object_unref(parser);
+    g_object_unref(reader);
   }
   else
   {
     soup_message_set_status(msg, SOUP_STATUS_NOT_IMPLEMENTED);
   }
 
-  return;
+ return;
+error:
+    soup_message_set_status(msg, SOUP_STATUS_INTERNAL_SERVER_ERROR);
 }
 
 static void

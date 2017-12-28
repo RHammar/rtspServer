@@ -1,4 +1,5 @@
 #include <gst/gst.h>
+#include <string.h>
 
 #include "server.h"
 #include "rtsp.h"
@@ -46,7 +47,14 @@ GstRTSPServer *rtsp_start(int argc, char *argv[])
   return server;
 }
 
-int rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, const gchar *proxy, const gchar *path)
+static int
+gen_new_mount_point_id()
+{
+  static int id = 0;
+  return ++id;
+}
+
+MountPoint *rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, const gchar *proxy, const gchar *path)
 {
   GstRTSPMountPoints *mounts;
   GstRTSPServer *rtspserver = serverdata->server;
@@ -58,14 +66,16 @@ int rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, const gcha
   gst_rtsp_media_factory_set_shared(GST_RTSP_MEDIA_FACTORY(factory), TRUE);
 
   mountpoint = (MountPoint *)g_malloc(sizeof(MountPoint));
-  mountpoint->id = 1;
-  mountpoint->path = path;
+  mountpoint->id = gen_new_mount_point_id();
+  mountpoint->path = g_malloc(sizeof(gchar) * strlen(path) + 1);
+  strcpy(mountpoint->path, path);
   mountpoint->factory = GST_RTSP_MEDIA_FACTORY(factory);
   serverdata->mountPoints = g_list_append(serverdata->mountPoints, mountpoint);
   mounts = gst_rtsp_server_get_mount_points(serverdata->server);
   gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
   monitor_media(serverdata, GST_RTSP_MEDIA_FACTORY(factory));
   g_object_unref(mounts);
+  return mountpoint;
 }
 
 int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path)
