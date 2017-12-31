@@ -28,6 +28,61 @@ compareMountPoints(gconstpointer a,
 }
 
 static void
+addClientsToArray(gpointer data,
+                  gpointer user_data)
+{
+  RTSPClient *rtspclient = (RTSPClient*) data;
+  JsonBuilder *builder = (JsonBuilder*) user_data;
+  MountPoint *mountpoint = rtspclient->mountpoint;
+  json_builder_begin_object(builder);
+  json_builder_set_member_name(builder, "mountpoint");
+  json_builder_add_int_value(builder, mountpoint->id);
+  json_builder_set_member_name(builder, "path");
+  mountpoint = rtspclient->mountpoint;
+  PDEBUG("id: %d", mountpoint->id);
+  PDEBUG("path: %s", mountpoint->path);
+  json_builder_add_string_value(builder, mountpoint->path);
+  json_builder_end_object(builder);
+}
+
+static void
+clients_callback(SoupServer *server,
+                 SoupMessage *msg,
+                 const char *path,
+                 GHashTable *query,
+                 SoupClientContext *context,
+                 gpointer user_data)
+{
+  ServerData *serverdata = (ServerData*)user_data;
+  JsonBuilder *builder = json_builder_new();
+  JsonGenerator *generator;
+  const gchar *body;
+  PDEBUG("clients_callback");
+  if (msg->method != SOUP_METHOD_GET)
+  {
+    soup_message_set_status(msg, SOUP_STATUS_NOT_IMPLEMENTED);
+    return;
+  }
+  builder = json_builder_new();
+  json_builder_begin_object (builder);
+  json_builder_set_member_name(builder, "clients");
+  //json_builder_add_int_value (builder, get_number_of_clients(rtsp_server));
+  json_builder_begin_array(builder);
+  g_list_foreach(serverdata->clients,
+                 addClientsToArray,
+                 builder);
+  json_builder_end_array(builder);
+  json_builder_end_object(builder);
+  generator = json_generator_new();
+  json_generator_set_root(generator, json_builder_get_root (builder));
+  body = json_generator_to_data (generator, NULL);
+  soup_message_set_status(msg, SOUP_STATUS_OK);
+  soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
+                            body, strlen(body));
+
+}
+
+static void
 live_callback(SoupServer *server,
               SoupMessage *msg,
               const char *path,
@@ -247,6 +302,7 @@ SoupServer *httpserver_start(ServerData *server)
 
   soupServer = soup_server_new(SOUP_SERVER_SERVER_HEADER, "rtsp-httpd ", NULL);
   soup_server_add_handler(soupServer, "/mountpoints", live_callback, server, NULL);
+  soup_server_add_handler(soupServer, "/clients", clients_callback, server, NULL);
   soup_server_add_handler(soupServer, "/startfile", startfile_callback, server, NULL);
   soup_server_add_handler(soupServer, "/startfile/rate", startfile_rate_callback, server, NULL);
   soup_server_add_handler(soupServer, "/status", status_callback, server, NULL);

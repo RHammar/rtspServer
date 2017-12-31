@@ -7,7 +7,7 @@ CFLAGS =-g
 all:
 	gcc $(CFLAGS) `pkg-config --cflags glib-2.0 gstreamer-1.0 gio-2.0 libsoup-2.4 json-glib-1.0 gstreamer-rtsp-1.0`\
 	 $(SRCS) -o $(PROGS)\
-	 `pkg-config glib-2.0 gstreamer-1.0 gio-2.0 libsoup-2.4 json-glib-1.0 --libs`\
+	 `pkg-config glib-2.0 gstreamer-1.0 gstreamer-rtsp-1.0 gio-2.0 libsoup-2.4 json-glib-1.0 --libs`\
 	 -lgstrtspserver-1.0 -levent -lsoup-2.4 $(LDFLAGS)\
 
 

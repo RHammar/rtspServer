@@ -14,7 +14,12 @@ typedef struct MountPoint {
   GstRTSPMediaFactory* factory;
 } MountPoint;
 
-GstRTSPServer * rtsp_start(int argc, char *argv[]);
+typedef struct RTSPClient {
+  GstRTSPClient *client;
+  MountPoint *mountpoint;
+} RTSPClient;
+
+GstRTSPServer * rtsp_start(ServerData *server, int argc, char *argv[]);
 int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path);
 int rtsp_setup_vod_pipeline(ServerData *server, char *path);
 int rtsp_setup_vod_rate_pipeline(gdouble rate, GstRTSPServer *server, char *path);

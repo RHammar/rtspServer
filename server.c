@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 
   PDEBUG("rtsp_start");
   serverdata.loop = g_main_loop_new(NULL, FALSE);
-  serverdata.server = rtsp_start(argc, argv);
+  serverdata.server = rtsp_start(&serverdata, argc, argv);
   serverdata.soup = httpserver_start(&serverdata);
   if (!serverdata.soup){
     goto error;

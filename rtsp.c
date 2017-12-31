@@ -26,7 +26,37 @@ static void
 client_closed(GstRTSPClient *,
               gpointer);
 
-GstRTSPServer *rtsp_start(int argc, char *argv[])
+static void
+client_play(GstRTSPClient *,
+            GstRTSPContext *,
+            gpointer);
+
+static gint
+findMountPointFactory(gconstpointer a,
+                      gconstpointer b)
+{
+  MountPoint *mounta = (MountPoint*) a;
+  GstRTSPMediaFactory *factory = (GstRTSPMediaFactory*) b;
+  PDEBUG("findmountpointfactory a: %p, b: %p", mounta->factory, factory);
+  if (mounta->factory == factory){
+    return 0;
+  }
+}
+
+static gint
+compareClients(gconstpointer a,
+               gconstpointer b)
+{
+  RTSPClient *clienta = (RTSPClient*) a;
+  GstRTSPClient *clientb = (GstRTSPClient*) b;
+  PDEBUG("compareclients a: %p, b: %p", clienta->client, clientb);
+  if (clienta->client == clientb){
+    PDEBUG("client match");
+    return 0;
+  }
+}
+
+GstRTSPServer *rtsp_start(ServerData *serverdata, int argc, char *argv[])
 {
   GstRTSPServer *server;
 
@@ -42,7 +72,7 @@ GstRTSPServer *rtsp_start(int argc, char *argv[])
   gst_rtsp_server_attach(server, NULL);
 
   g_signal_connect(server, "client-connected", (GCallback)client_connected,
-                   NULL);
+                   serverdata);
 
   return server;
 }
@@ -253,13 +283,19 @@ client_connected(GstRTSPServer *server,
                  gpointer user_data)
 {
   guint clients;
-  GstRTSPMountPoints *mountpoints;
+  RTSPClient *rtspclient;
+  ServerData *serverdata = (ServerData*) user_data;
   clients = get_number_of_clients(server);
   // +1 since current client is not in list yet
   PDEBUG("client connected, total clients: %d", clients + 1);
   g_signal_connect(client, "closed", (GCallback)client_closed,
-                   server);
-  mountpoints = gst_rtsp_client_get_mount_points(client);
+                   serverdata);
+  g_signal_connect(client, "play-request", (GCallback)client_play,
+                   serverdata);
+  rtspclient = (RTSPClient *)g_malloc(sizeof(RTSPClient));
+  rtspclient->client = client;
+  rtspclient->mountpoint = NULL;
+  serverdata->clients = g_list_append(serverdata->clients, rtspclient);
 }
 
 static void
@@ -267,9 +303,59 @@ client_closed(GstRTSPClient *client,
               gpointer user_data)
 {
   guint clients;
-  GstRTSPServer *server = (GstRTSPServer *)user_data;
+  GList *found = NULL;
+  RTSPClient *rtspclient;
+  ServerData *serverdata = (ServerData *) user_data;
+  GstRTSPServer *server = serverdata->server;
 
   clients = get_number_of_clients(server);
   // -1 since current client is still in the list
   PDEBUG("client closed, total clients: %d", clients - 1);
+  found = g_list_find_custom(serverdata->clients, client, compareClients);
+  if (found){
+    rtspclient = (RTSPClient*) found->data;
+    serverdata->clients = g_list_remove(serverdata->clients, rtspclient);
+    g_free(rtspclient);
+  }
+
 }
+
+static void
+client_play(GstRTSPClient *client,
+            GstRTSPContext *contex,
+            gpointer user_data)
+{
+  GList *found = NULL;
+  GList *foundMountPoint = NULL;
+  RTSPClient *rtspclient;
+  MountPoint *mountpoint;
+  GstRTSPMountPoints *rtspMountpoints;
+  ServerData *serverdata = (ServerData*) user_data;
+  gint matched;
+  GstRTSPMediaFactory *mediaFactory;
+
+  PDEBUG("client play");
+  // find rtspclient
+  found = g_list_find_custom(serverdata->clients, client, compareClients);
+  if (found)
+  {
+    PDEBUG("found rtspclient");
+    rtspclient = (RTSPClient*) found->data;
+    rtspMountpoints = gst_rtsp_client_get_mount_points(client);
+    gchar *mountPath = gst_rtsp_mount_points_make_path(rtspMountpoints, contex->uri);
+    mediaFactory = gst_rtsp_mount_points_match(rtspMountpoints, mountPath, &matched);
+    // find mountpoint with same factory as in context
+    PDEBUG("contex: uri %s", gst_rtsp_url_get_request_uri(contex->uri));
+    PDEBUG("contex: factory %p", contex->factory);
+    foundMountPoint = g_list_find_custom(serverdata->mountPoints, mediaFactory, findMountPointFactory);
+    g_free(mountPath);
+    g_object_unref(mediaFactory);
+    if (foundMountPoint)
+    {
+      mountpoint = (MountPoint*) foundMountPoint->data;
+      rtspclient->mountpoint = mountpoint;
+      PDEBUG("found mountpoint with path: %s", mountpoint->path);
+    }
+  }
+}
+
