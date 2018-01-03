@@ -28,20 +28,24 @@ compareMountPoints(gconstpointer a,
 }
 
 static void
-addClientsToArray(gpointer data,
-                  gpointer user_data)
+addClientToArray(gpointer data,
+                 gpointer user_data)
 {
   RTSPClient *rtspclient = (RTSPClient*) data;
   JsonBuilder *builder = (JsonBuilder*) user_data;
   MountPoint *mountpoint = rtspclient->mountpoint;
   json_builder_begin_object(builder);
+  json_builder_set_member_name(builder, "id");
+  json_builder_add_int_value(builder, rtspclient->id);
   json_builder_set_member_name(builder, "mountpoint");
-  json_builder_add_int_value(builder, mountpoint->id);
-  json_builder_set_member_name(builder, "path");
-  mountpoint = rtspclient->mountpoint;
-  PDEBUG("id: %d", mountpoint->id);
-  PDEBUG("path: %s", mountpoint->path);
-  json_builder_add_string_value(builder, mountpoint->path);
+  if(mountpoint != NULL)
+  {
+    json_builder_add_int_value(builder, mountpoint->id);
+  }
+  else
+  {
+    json_builder_add_int_value(builder, 0);
+  }
   json_builder_end_object(builder);
 }
 
@@ -69,7 +73,7 @@ clients_callback(SoupServer *server,
   //json_builder_add_int_value (builder, get_number_of_clients(rtsp_server));
   json_builder_begin_array(builder);
   g_list_foreach(serverdata->clients,
-                 addClientsToArray,
+                 addClientToArray,
                  builder);
   json_builder_end_array(builder);
   json_builder_end_object(builder);
@@ -80,6 +84,33 @@ clients_callback(SoupServer *server,
   soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
                             body, strlen(body));
 
+}
+
+static void
+addMountpointToArray(gpointer data,
+                     gpointer user_data)
+{
+  MountPoint *mountpoint = (MountPoint*) data;
+  JsonBuilder *builder = (JsonBuilder*) user_data;
+  json_builder_begin_object(builder);
+  json_builder_set_member_name(builder, "id");
+  json_builder_add_int_value(builder, mountpoint->id);
+  json_builder_set_member_name(builder, "path");
+  json_builder_add_string_value(builder, mountpoint->path);
+  json_builder_end_object(builder);
+}
+
+static void
+removeMountpointref(gpointer data,
+                    gpointer user_data)
+{
+  RTSPClient *client = (RTSPClient*) data;
+  MountPoint *mountpoint = (MountPoint*) user_data;
+  if (client->mountpoint == mountpoint)
+  {
+    PDEBUG("setting mountpoint to NULL");
+    client->mountpoint = NULL;
+  }
 }
 
 static void
@@ -177,7 +208,25 @@ live_callback(SoupServer *server,
   else if (msg->method == SOUP_METHOD_GET)
   {
     // Get status of mountpoint(s)
-    soup_message_set_status(msg, SOUP_STATUS_NOT_IMPLEMENTED);
+    ServerData *serverdata = (ServerData*)user_data;
+    JsonBuilder *builder = json_builder_new();
+    JsonGenerator *generator;
+    const gchar *body;
+    builder = json_builder_new();
+    json_builder_begin_object (builder);
+    json_builder_set_member_name(builder, "mountpoints");
+    json_builder_begin_array(builder);
+    g_list_foreach(serverdata->mountPoints,
+                   addMountpointToArray,
+                   builder);
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    generator = json_generator_new();
+    json_generator_set_root(generator, json_builder_get_root (builder));
+    body = json_generator_to_data (generator, NULL);
+    soup_message_set_status(msg, SOUP_STATUS_OK);
+    soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
+                              body, strlen(body));
   }
   else if (msg->method == SOUP_METHOD_DELETE)
   {
@@ -191,7 +240,7 @@ live_callback(SoupServer *server,
     if (json_reader_read_member(reader, "id"))
     {
       id = json_reader_get_int_value(reader);
-      PDEBUG("id: %d", id);
+      PDEBUG("remove mountpoint with id: %d", id);
     }
 
     found = g_list_find_custom(serverdata->mountPoints, &id, compareMountPoints);
@@ -200,9 +249,14 @@ live_callback(SoupServer *server,
       GstRTSPMountPoints *mounts = gst_rtsp_server_get_mount_points (serverdata->server);
       gst_rtsp_mount_points_remove_factory(mounts, mountpoint->path);
       g_object_unref(mounts);
+      // remove ref from serverdata->clients if any
+      g_list_foreach(serverdata->clients,
+                    removeMountpointref,
+                    mountpoint);
       // remove from serverdata->mountpoints
       serverdata->mountPoints = g_list_remove(serverdata->mountPoints, mountpoint);
       //g_object_unref(mountpoint->factory);
+      g_free(mountpoint->path);
       free(mountpoint);
     }
     soup_message_set_status(msg, SOUP_STATUS_OK);

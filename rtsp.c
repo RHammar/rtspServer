@@ -80,7 +80,14 @@ GstRTSPServer *rtsp_start(ServerData *serverdata, int argc, char *argv[])
 static int
 gen_new_mount_point_id()
 {
-  static int id = 0;
+  static guint32 id = 0;
+  return ++id;
+}
+
+static int
+gen_new_client_id()
+{
+  static guint32 id = 0;
   return ++id;
 }
 
@@ -292,7 +299,9 @@ client_connected(GstRTSPServer *server,
                    serverdata);
   g_signal_connect(client, "play-request", (GCallback)client_play,
                    serverdata);
+
   rtspclient = (RTSPClient *)g_malloc(sizeof(RTSPClient));
+  rtspclient->id = gen_new_client_id();
   rtspclient->client = client;
   rtspclient->mountpoint = NULL;
   serverdata->clients = g_list_append(serverdata->clients, rtspclient);
@@ -312,7 +321,8 @@ client_closed(GstRTSPClient *client,
   // -1 since current client is still in the list
   PDEBUG("client closed, total clients: %d", clients - 1);
   found = g_list_find_custom(serverdata->clients, client, compareClients);
-  if (found){
+  if (found)
+  {
     rtspclient = (RTSPClient*) found->data;
     serverdata->clients = g_list_remove(serverdata->clients, rtspclient);
     g_free(rtspclient);

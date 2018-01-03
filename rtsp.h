@@ -9,12 +9,13 @@
 #include "server.h"
 
 typedef struct MountPoint {
-  gint id;
+  guint32 id;
   gchar *path;
   GstRTSPMediaFactory* factory;
 } MountPoint;
 
 typedef struct RTSPClient {
+  guint32 id;
   GstRTSPClient *client;
   MountPoint *mountpoint;
 } RTSPClient;
