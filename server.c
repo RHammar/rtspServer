@@ -8,7 +8,6 @@
 
 int main(int argc, char *argv[])
 {
- 
   ServerData serverdata;
   serverdata.mountPoints = NULL;
   serverdata.clients = NULL;

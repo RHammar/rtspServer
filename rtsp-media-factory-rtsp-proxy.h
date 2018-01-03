@@ -19,6 +19,7 @@ G_BEGIN_DECLS
 
 typedef struct _GstRTSPMediaFactoryRtspProxy GstRTSPMediaFactoryRtspProxy;
 typedef struct _GstRTSPMediaFactoryRtspProxyClass GstRTSPMediaFactoryRtspProxyClass;
+typedef struct _GstRTSPMediaFactoryRtspProxyPrivate GstRTSPMediaFactoryRtspProxyPrivate;
 
 /**
  * GstRTSPMediaFactoryRtspProxy:
@@ -30,8 +31,7 @@ typedef struct _GstRTSPMediaFactoryRtspProxyClass GstRTSPMediaFactoryRtspProxyCl
 struct _GstRTSPMediaFactoryRtspProxy
 {
   GstRTSPMediaFactory parent;
-  gchar *uri;
-  gchar *proxy;
+  GstRTSPMediaFactoryRtspProxyPrivate *priv;
 };
 
 /**
@@ -54,8 +54,12 @@ GType gst_rtsp_media_factory_rtsp_proxy_get_type(void);
 GstRTSPMediaFactoryRtspProxy *gst_rtsp_media_factory_rtsp_proxy_new(void);
 
 /* configuring the factory */
-void gst_rtsp_media_factory_rtsp_proxy_configure(GstRTSPMediaFactoryRtspProxy *factory, const gchar *uri, const gchar *proxy);
-// GstElement *gst_rtsp_media_factory_rtsp_proxy_get_bin(GstRTSPMediaFactoryRtspProxy *factory);
+void gst_rtsp_media_factory_rtsp_proxy_set_uri(GstRTSPMediaFactoryRtspProxy *factory,
+                                               const gchar *uri);
+void gst_rtsp_media_factory_rtsp_proxy_set_proxy(GstRTSPMediaFactoryRtspProxy *factory,
+                                                 const gchar *proxy);
+gchar *gst_rtsp_media_factory_rtsp_proxy_get_uri(GstRTSPMediaFactoryRtspProxy *factory);
+gchar *gst_rtsp_media_factory_rtsp_proxy_get_proxy(GstRTSPMediaFactoryRtspProxy *factory);
 
 G_END_DECLS
 

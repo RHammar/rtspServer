@@ -7,11 +7,12 @@
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include "server.h"
+#include "rtsp-media-factory-rtsp-proxy.h"
 
 typedef struct MountPoint {
   guint32 id;
   gchar *path;
-  GstRTSPMediaFactory* factory;
+  GstRTSPMediaFactoryRtspProxy* factory;
 } MountPoint;
 
 typedef struct RTSPClient {

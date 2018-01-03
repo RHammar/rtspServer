@@ -97,6 +97,8 @@ addMountpointToArray(gpointer data,
   json_builder_add_int_value(builder, mountpoint->id);
   json_builder_set_member_name(builder, "path");
   json_builder_add_string_value(builder, mountpoint->path);
+  json_builder_set_member_name(builder, "uri");
+  json_builder_add_string_value(builder, gst_rtsp_media_factory_rtsp_proxy_get_uri(mountpoint->factory));
   json_builder_end_object(builder);
 }
 

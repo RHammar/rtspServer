@@ -36,7 +36,7 @@ findMountPointFactory(gconstpointer a,
                       gconstpointer b)
 {
   MountPoint *mounta = (MountPoint*) a;
-  GstRTSPMediaFactory *factory = (GstRTSPMediaFactory*) b;
+  GstRTSPMediaFactoryRtspProxy *factory = (GstRTSPMediaFactoryRtspProxy*) b;
   PDEBUG("findmountpointfactory a: %p, b: %p", mounta->factory, factory);
   if (mounta->factory == factory){
     return 0;
@@ -99,14 +99,18 @@ MountPoint *rtsp_setup_proxy_stream(ServerData *serverdata, const gchar *uri, co
   GstRTSPMediaFactoryRtspProxy *factory;
 
   factory = gst_rtsp_media_factory_rtsp_proxy_new();
-  gst_rtsp_media_factory_rtsp_proxy_configure(factory, uri, proxy);
+  gst_rtsp_media_factory_rtsp_proxy_set_uri(factory, uri);
+  if(proxy != NULL)
+  {
+    gst_rtsp_media_factory_rtsp_proxy_set_proxy(factory, proxy);
+  }
   gst_rtsp_media_factory_set_shared(GST_RTSP_MEDIA_FACTORY(factory), TRUE);
 
   mountpoint = (MountPoint *)g_malloc(sizeof(MountPoint));
   mountpoint->id = gen_new_mount_point_id();
   mountpoint->path = g_malloc(sizeof(gchar) * strlen(path) + 1);
   strcpy(mountpoint->path, path);
-  mountpoint->factory = GST_RTSP_MEDIA_FACTORY(factory);
+  mountpoint->factory = factory;
   serverdata->mountPoints = g_list_append(serverdata->mountPoints, mountpoint);
   mounts = gst_rtsp_server_get_mount_points(serverdata->server);
   gst_rtsp_mount_points_add_factory(mounts, path, GST_RTSP_MEDIA_FACTORY(factory));
