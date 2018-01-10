@@ -1,4 +1,4 @@
-SRCS = server.c httpserver.c rtsp.c rtsp-media-factory-custom.c pipelinebuilder.c pipelinemonitor.c mediamonitor.c rtsp-media-factory-rtsp-proxy.c rtspproxypipeline.c
+SRCS = server.c httpserver.c rtsp.c rtsp-media-factory-custom.c pipelinebuilder.c pipelinemonitor.c mediamonitor.c rtsp-media-factory-rtsp-proxy.c rtspproxypipeline.c config.c
 PROGS = rtsp_server
 #LDFLAGS =-g -L/home/rickardh/Development/gst-rtsp-server-1.9.2/gst/rtsp-server/.libs
 LDFLAGS =-g 

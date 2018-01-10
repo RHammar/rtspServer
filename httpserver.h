@@ -8,6 +8,7 @@
 #include <gst/rtsp-server/rtsp-server.h>
 #include <libsoup/soup.h>
 #include "server.h"
+#include "config.h"
 
 /*
  * HTML response codes.
@@ -23,6 +24,6 @@
 #define HTTP_OK               "OK 200\n"
 #define HTTP_ERR              "ERROR 400\n"
 
-SoupServer * httpserver_start(ServerData *server);
+SoupServer * httpserver_start(ServerData *server, RtspConfiguration *config);
 
 #endif /* __HTTPSERVER__ */

@@ -1,5 +1,6 @@
 #include <gst/gst.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "server.h"
 #include "rtsp.h"
@@ -56,7 +57,7 @@ compareClients(gconstpointer a,
   }
 }
 
-GstRTSPServer *rtsp_start(ServerData *serverdata, int argc, char *argv[])
+GstRTSPServer *rtsp_start(ServerData *serverdata, RtspConfiguration *config, int argc, char *argv[])
 {
   GstRTSPServer *server;
 
@@ -65,16 +66,27 @@ GstRTSPServer *rtsp_start(ServerData *serverdata, int argc, char *argv[])
 
   /* create a server instance */
   server = gst_rtsp_server_new();
+  gst_rtsp_server_set_address(server, config->rtspListenIp);
+  gst_rtsp_server_set_service(server, config->rtspListenPort);
+
   /* start serving */
   PDEBUG("rtsp server started");
 
   /* attach the server to the default maincontext */
   gst_rtsp_server_attach(server, NULL);
 
+  if(gst_rtsp_server_get_bound_port(server) != atoi(config->rtspListenPort))
+  {
+    PERROR("Could not bind to port: %s", config->rtspListenPort);
+    goto error;
+  }
   g_signal_connect(server, "client-connected", (GCallback)client_connected,
                    serverdata);
 
   return server;
+
+error:
+  return NULL;
 }
 
 static int

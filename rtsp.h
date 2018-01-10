@@ -8,6 +8,7 @@
 #include <gst/rtsp-server/rtsp-server.h>
 #include "server.h"
 #include "rtsp-media-factory-rtsp-proxy.h"
+#include "config.h"
 
 typedef struct MountPoint {
   guint32 id;
@@ -21,7 +22,7 @@ typedef struct RTSPClient {
   MountPoint *mountpoint;
 } RTSPClient;
 
-GstRTSPServer * rtsp_start(ServerData *server, int argc, char *argv[]);
+GstRTSPServer * rtsp_start(ServerData *server, RtspConfiguration *config, int argc, char *argv[]);
 int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path);
 int rtsp_setup_vod_pipeline(ServerData *server, char *path);
 int rtsp_setup_vod_rate_pipeline(gdouble rate, GstRTSPServer *server, char *path);

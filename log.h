@@ -2,6 +2,15 @@
 #define  _LOG_H
 #include <syslog.h>
 
+
+typedef enum Loglevel {
+  LOGLEVEL_DEBUG = 0,
+  LOGLEVEL_INFO,
+  LOGLEVEL_WARN,
+  LOGLEVEL_ERROR,
+  LOGLEVEL_CRIT
+} Loglevel;
+
 // Uncomment to log debug entries
 #define DEBUG
 

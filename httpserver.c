@@ -116,12 +116,12 @@ removeMountpointref(gpointer data,
 }
 
 static void
-live_callback(SoupServer *server,
-              SoupMessage *msg,
-              const char *path,
-              GHashTable *query,
-              SoupClientContext *context,
-              gpointer user_data)
+mountpoints_callback(SoupServer *server,
+                     SoupMessage *msg,
+                     const char *path,
+                     GHashTable *query,
+                     SoupClientContext *context,
+                     gpointer user_data)
 {
   const char *mime_type;
   GByteArray *body;
@@ -135,7 +135,7 @@ live_callback(SoupServer *server,
   GstRTSPServer *rtspserver = serverdata->server;
   MountPoint *mountpoint;
 
-  PDEBUG("live_callback");
+  PDEBUG("mountpoints_callback");
   if (msg->method == SOUP_METHOD_PUT)
   {
     // Create new stream
@@ -187,7 +187,7 @@ live_callback(SoupServer *server,
     json_builder_add_int_value (builder, mountpoint->id);
     json_builder_set_member_name (builder, "uri");
     gchar *address = gst_rtsp_server_get_address(serverdata->server);
-    asprintf(&uri, "%s:%d%s", address, gst_rtsp_server_get_bound_port(serverdata->server), mountpoint->path);
+    asprintf(&uri, "rtsp://%s:%d%s", address, gst_rtsp_server_get_bound_port(serverdata->server), mountpoint->path);
     json_builder_add_string_value (builder, uri);
     json_builder_end_object (builder);
     JsonGenerator *gen = json_generator_new ();
@@ -349,20 +349,26 @@ status_callback(SoupServer *server,
                             body, strlen(body));
 }
 
-SoupServer *httpserver_start(ServerData *server)
+SoupServer *httpserver_start(ServerData *server, RtspConfiguration *config)
 {
   SoupServer *soupServer;
   GError *error = NULL;
   GSList *uris, *u;
   char *str;
+  GSocketAddress *address;
 
   soupServer = soup_server_new(SOUP_SERVER_SERVER_HEADER, "rtsp-httpd ", NULL);
-  soup_server_add_handler(soupServer, "/mountpoints", live_callback, server, NULL);
+  soup_server_add_handler(soupServer, "/mountpoints", mountpoints_callback, server, NULL);
   soup_server_add_handler(soupServer, "/clients", clients_callback, server, NULL);
   soup_server_add_handler(soupServer, "/startfile", startfile_callback, server, NULL);
   soup_server_add_handler(soupServer, "/startfile/rate", startfile_rate_callback, server, NULL);
   soup_server_add_handler(soupServer, "/status", status_callback, server, NULL);
-  if (!soup_server_listen_all(soupServer, 1500, 0, &error))
+  address = g_inet_socket_address_new(g_inet_address_new_from_string(config->httpListenIp), atoi(config->httpListenPort));
+  if (!soup_server_listen (soupServer,
+                           address,
+                           0,
+                           &error))
+  //if (!soup_server_listen_all(soupServer, 1500, 0, &error))
   {
     PDEBUG("Unable to bind to port");
     goto error;
