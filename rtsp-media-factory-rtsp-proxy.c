@@ -45,6 +45,8 @@ static void gst_rtsp_media_factory_rtsp_proxy_finalize(GObject *obj);
 
 static GstElement *
 rtsp_media_factory_custom_create_element(GstRTSPMediaFactory *factory, const GstRTSPUrl *url);
+static gchar *gst_rtsp_media_factory_rtsp_proxy_gen_key (GstRTSPMediaFactory * factory,
+    const GstRTSPUrl * url);
 
 static void
 gst_rtsp_media_factory_rtsp_proxy_class_init(GstRTSPMediaFactoryRtspProxyClass *klass)
@@ -56,6 +58,7 @@ gst_rtsp_media_factory_rtsp_proxy_class_init(GstRTSPMediaFactoryRtspProxyClass *
   g_type_class_add_private(klass, sizeof(GstRTSPMediaFactoryRtspProxyPrivate));
   gstrtspmediafactory_class = (GstRTSPMediaFactoryClass *)klass;
   gstrtspmediafactory_class->create_element = rtsp_media_factory_custom_create_element;
+  gstrtspmediafactory_class->gen_key = gst_rtsp_media_factory_rtsp_proxy_gen_key;
   gobject_class->get_property = gst_rtsp_media_factory_rtsp_proxy_get_property;
   gobject_class->set_property = gst_rtsp_media_factory_rtsp_proxy_set_property;
   gobject_class->finalize = gst_rtsp_media_factory_rtsp_proxy_finalize;
@@ -73,6 +76,7 @@ gst_rtsp_media_factory_rtsp_proxy_class_init(GstRTSPMediaFactoryRtspProxyClass *
 static void
 gst_rtsp_media_factory_rtsp_proxy_init(GstRTSPMediaFactoryRtspProxy *factory)
 {
+  PDEBUG("gst_rtsp_media_factory_rtsp_proxy_init");
   GstRTSPMediaFactoryRtspProxyPrivate *priv =
       GST_RTSP_MEDIA_FACTORY_RTSP_PROXY_GET_PRIVATE(factory);
   factory->priv = priv;
@@ -84,6 +88,7 @@ gst_rtsp_media_factory_rtsp_proxy_init(GstRTSPMediaFactoryRtspProxy *factory)
 static void
 gst_rtsp_media_factory_rtsp_proxy_finalize(GObject *obj)
 {
+  PDEBUG("gst_rtsp_media_factory_rtsp_proxy_finalize");
   GstRTSPMediaFactoryRtspProxy *factory = GST_RTSP_MEDIA_FACTORY_RTSP_PROXY(obj);
   GstRTSPMediaFactoryRtspProxyPrivate *priv = factory->priv;
   if (priv->uri)
@@ -103,7 +108,7 @@ GstRTSPMediaFactoryRtspProxy *
 gst_rtsp_media_factory_rtsp_proxy_new(void)
 {
   GstRTSPMediaFactoryRtspProxy *result;
-
+  PDEBUG("gst_rtsp_media_factory_rtsp_proxy_new");
   result = g_object_new(GST_TYPE_RTSP_MEDIA_FACTORY_RTSP_PROXY, NULL);
 
   return result;
@@ -194,6 +199,21 @@ gst_rtsp_media_factory_rtsp_proxy_get_proxy(GstRTSPMediaFactoryRtspProxy *factor
   g_mutex_lock(&factory->priv->lock);
   result = g_strdup(factory->priv->proxy);
   g_mutex_unlock(&factory->priv->lock);
+
+  return result;
+}
+
+static gchar *
+gst_rtsp_media_factory_rtsp_proxy_gen_key (GstRTSPMediaFactory * factory, const GstRTSPUrl * url)
+{
+  gchar *result;
+  const gchar *pre_query;
+  const gchar *query;
+
+  pre_query = url->query ? "?" : "";
+  query = url->query ? url->query : "";
+
+  result = g_strdup_printf ("%s%s%s", url->abspath, pre_query, query);
 
   return result;
 }
