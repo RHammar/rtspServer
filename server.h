@@ -10,7 +10,6 @@ typedef struct ServerData {
   GstRTSPServer *server;
   SoupServer *soup;
   GList *mountPoints;
-  GList *clients;
 } ServerData;
 
 #endif //__SERVER__

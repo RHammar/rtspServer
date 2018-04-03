@@ -27,6 +27,6 @@ typedef enum Loglevel {
 #define PCRIT(fmt, args...) PLOGLINE(LOG_CRIT, fmt, ##args)
 #define PERROR(fmt, args...) PLOGLINE(LOG_ERR, fmt, ##args)
 #define PWARN(fmt, args...) PLOGLINE(LOG_WARNING, fmt, ##args)
-#define PINFO(fmt, args...) PLOG(LOG_INFO, fmt, ##args)
+#define PINFO(fmt, args...) PLOGLINE(LOG_INFO, fmt, ##args)
 
 #endif /* _LOG_H */

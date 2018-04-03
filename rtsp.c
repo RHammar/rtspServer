@@ -8,6 +8,7 @@
 #include "rtsp-media-factory-custom.h"
 #include "rtsp-media-factory-rtsp-proxy.h"
 #include "mediamonitor.h"
+#include "rtsp_clients.h"
 
 typedef struct _CustomData
 {
@@ -40,19 +41,6 @@ findMountPointFactory(gconstpointer a,
   GstRTSPMediaFactoryRtspProxy *factory = (GstRTSPMediaFactoryRtspProxy*) b;
   PDEBUG("findmountpointfactory a: %p, b: %p", mounta->factory, factory);
   if (mounta->factory == factory){
-    return 0;
-  }
-}
-
-static gint
-compareClients(gconstpointer a,
-               gconstpointer b)
-{
-  RTSPClient *clienta = (RTSPClient*) a;
-  GstRTSPClient *clientb = (GstRTSPClient*) b;
-  PDEBUG("compareclients a: %p, b: %p", clienta->client, clientb);
-  if (clienta->client == clientb){
-    PDEBUG("client match");
     return 0;
   }
 }
@@ -91,13 +79,6 @@ error:
 
 static int
 gen_new_mount_point_id()
-{
-  static guint32 id = 0;
-  return ++id;
-}
-
-static int
-gen_new_client_id()
 {
   static guint32 id = 0;
   return ++id;
@@ -306,7 +287,6 @@ client_connected(GstRTSPServer *server,
                  gpointer user_data)
 {
   guint clients;
-  RTSPClient *rtspclient;
   ServerData *serverdata = (ServerData*) user_data;
   clients = get_number_of_clients(server);
   // +1 since current client is not in list yet
@@ -316,11 +296,7 @@ client_connected(GstRTSPServer *server,
   g_signal_connect(client, "play-request", (GCallback)client_play,
                    serverdata);
 
-  rtspclient = (RTSPClient *)g_malloc(sizeof(RTSPClient));
-  rtspclient->id = gen_new_client_id();
-  rtspclient->client = client;
-  rtspclient->mountpoint = NULL;
-  serverdata->clients = g_list_append(serverdata->clients, rtspclient);
+  add_client(client);
 }
 
 static void
@@ -328,22 +304,14 @@ client_closed(GstRTSPClient *client,
               gpointer user_data)
 {
   guint clients;
-  GList *found = NULL;
-  RTSPClient *rtspclient;
   ServerData *serverdata = (ServerData *) user_data;
   GstRTSPServer *server = serverdata->server;
 
-  clients = get_number_of_clients(server);
-  // -1 since current client is still in the list
-  PDEBUG("client closed, total clients: %d", clients - 1);
-  found = g_list_find_custom(serverdata->clients, client, compareClients);
-  if (found)
-  {
-    rtspclient = (RTSPClient*) found->data;
-    serverdata->clients = g_list_remove(serverdata->clients, rtspclient);
-    g_free(rtspclient);
-  }
-
+  // clients = get_number_of_clients(server);
+  // // -1 since current client is still in the list
+  // PDEBUG("client closed, total clients: %d", clients - 1);
+  remove_client(client);
+  PDEBUG("client was removed");
 }
 
 static void
@@ -351,9 +319,8 @@ client_play(GstRTSPClient *client,
             GstRTSPContext *contex,
             gpointer user_data)
 {
-  GList *found = NULL;
   GList *foundMountPoint = NULL;
-  RTSPClient *rtspclient;
+  RTSPClient *rtspclient = NULL;
   MountPoint *mountpoint;
   GstRTSPMountPoints *rtspMountpoints;
   ServerData *serverdata = (ServerData*) user_data;
@@ -362,11 +329,10 @@ client_play(GstRTSPClient *client,
 
   PDEBUG("client play");
   // find rtspclient
-  found = g_list_find_custom(serverdata->clients, client, compareClients);
-  if (found)
+  rtspclient = get_client(client);
+  if (rtspclient)
   {
     PDEBUG("found rtspclient");
-    rtspclient = (RTSPClient*) found->data;
     rtspMountpoints = gst_rtsp_client_get_mount_points(client);
     gchar *mountPath = gst_rtsp_mount_points_make_path(rtspMountpoints, contex->uri);
     mediaFactory = gst_rtsp_mount_points_match(rtspMountpoints, mountPath, &matched);
@@ -378,6 +344,7 @@ client_play(GstRTSPClient *client,
     g_object_unref(mediaFactory);
     if (foundMountPoint)
     {
+      // set mountpoint on client
       mountpoint = (MountPoint*) foundMountPoint->data;
       rtspclient->mountpoint = mountpoint;
       PDEBUG("found mountpoint with path: %s", mountpoint->path);

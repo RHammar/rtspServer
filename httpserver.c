@@ -12,6 +12,7 @@
 #include "pipelinebuilder.h"
 #include "pipelinemonitor.h"
 #include "server.h"
+#include "rtsp_clients.h"
 
 static void handle_new_pad(GstElement *decodebin, GstPad *pad,
                            GstElement *target);
@@ -62,28 +63,37 @@ clients_callback(SoupServer *server,
   JsonGenerator *generator;
   const gchar *body;
   PDEBUG("clients_callback");
-  if (msg->method != SOUP_METHOD_GET)
+  if (msg->method == SOUP_METHOD_GET)
   {
-    soup_message_set_status(msg, SOUP_STATUS_NOT_IMPLEMENTED);
-    return;
-  }
-  builder = json_builder_new();
-  json_builder_begin_object (builder);
-  json_builder_set_member_name(builder, "clients");
-  //json_builder_add_int_value (builder, get_number_of_clients(rtsp_server));
-  json_builder_begin_array(builder);
-  g_list_foreach(serverdata->clients,
-                 addClientToArray,
-                 builder);
-  json_builder_end_array(builder);
-  json_builder_end_object(builder);
-  generator = json_generator_new();
-  json_generator_set_root(generator, json_builder_get_root (builder));
-  body = json_generator_to_data (generator, NULL);
-  soup_message_set_status(msg, SOUP_STATUS_OK);
-  soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
-                            body, strlen(body));
+    builder = json_builder_new();
+    json_builder_begin_object (builder);
+    json_builder_set_member_name(builder, "clients");
+    json_builder_begin_array(builder);
+    g_list_foreach(get_clients(),
+                  addClientToArray,
+                  builder);
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    generator = json_generator_new();
+    json_generator_set_root(generator, json_builder_get_root (builder));
+    body = json_generator_to_data (generator, NULL);
+    soup_message_set_status(msg, SOUP_STATUS_OK);
+    soup_message_set_response(msg, "application/json", SOUP_MEMORY_COPY,
+                              body, strlen(body));
 
+  }
+  else if (msg->method == SOUP_METHOD_DELETE)
+  {
+    // + 9 for "/clients/"
+    const unsigned long ul = strtoul(path + 9, NULL, 0);
+    if (close_client(ul) == 0) {
+      PDEBUG("setting status OK");
+      soup_message_set_status(msg, SOUP_STATUS_OK);
+    } else {
+      PDEBUG("setting status FAILED");
+      soup_message_set_status(msg, SOUP_STATUS_NOT_FOUND);
+    }
+  }
 }
 
 static void
@@ -251,8 +261,8 @@ mountpoints_callback(SoupServer *server,
       GstRTSPMountPoints *mounts = gst_rtsp_server_get_mount_points (serverdata->server);
       gst_rtsp_mount_points_remove_factory(mounts, mountpoint->path);
       g_object_unref(mounts);
-      // remove ref from serverdata->clients if any
-      g_list_foreach(serverdata->clients,
+      // remove ref from clients if any
+      g_list_foreach(get_clients(),
                     removeMountpointref,
                     mountpoint);
       // remove from serverdata->mountpoints

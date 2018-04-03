@@ -16,12 +16,6 @@ typedef struct MountPoint {
   GstRTSPMediaFactoryRtspProxy* factory;
 } MountPoint;
 
-typedef struct RTSPClient {
-  guint32 id;
-  GstRTSPClient *client;
-  MountPoint *mountpoint;
-} RTSPClient;
-
 GstRTSPServer * rtsp_start(ServerData *server, RtspConfiguration *config, int argc, char *argv[]);
 int rtsp_setup_stream(GstRTSPServer *server, gchar *pipeline, char *path);
 int rtsp_setup_vod_pipeline(ServerData *server, char *path);

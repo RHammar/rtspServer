@@ -65,7 +65,11 @@ handle_new_pad(GstElement *rtspsrc, GstPad *pad, GstElement *pipeline)
   GstPad *sink, *srcpad;
   GstStateChangeReturn ret;
 
+  PDEBUG("handle new pad");
   caps = gst_pad_get_current_caps(pad);
+  if (!caps) {
+    goto error;
+  }
   str = gst_caps_get_structure(caps, 0);
   name = gst_structure_get_name(str);
   media = gst_structure_get_string(str, "media");
@@ -81,6 +85,9 @@ handle_new_pad(GstElement *rtspsrc, GstPad *pad, GstElement *pipeline)
     PDEBUG("got video");
     add_video_payloder(pipeline, pad);
   }
+  return;
+error:
+  PDEBUG("got an error");
 }
 
 static void

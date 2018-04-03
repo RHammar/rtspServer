@@ -11,10 +11,15 @@
 
 int main(int argc, char *argv[])
 {
+  guint major;
+  guint minor;
+  guint micro;
+  guint nano;
+  gst_version(&major, &minor, &micro, &nano);
+  PINFO("%s started. GST version %u.%u.%u.%u", argv[0], major, minor, micro, nano);
   ServerData serverdata;
   RtspConfiguration config;
   serverdata.mountPoints = NULL;
-  serverdata.clients = NULL;
   int opt = 0;
   gchar *filename = NULL;
   char *manage = "127.0.0.1:7777";
