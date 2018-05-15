@@ -39,6 +39,12 @@ compare_client_by_id(gconstpointer a,
   return -1;
 }
 
+static GstRTSPFilterResult
+remove_session(GstRTSPSessionPool *pool, GstRTSPSession *session, gpointer user_data) {
+   PDEBUG("removing session %p\n", session);
+   return GST_RTSP_FILTER_REMOVE;
+}
+
 RTSPClient *
 add_client(GstRTSPClient *client)
 {
@@ -56,15 +62,18 @@ gint
 close_client(guint32 id)
 {
   RTSPClient *rtspclient;
+  GstRTSPSessionPool * pool;
   GList *found = NULL;
   found = g_list_find_custom(rtsp_clients, &id, compare_client_by_id);
   if (found)
   {
     rtspclient = (RTSPClient*) found->data;
     PDEBUG("closing client with id %d", id);
-    gst_rtsp_client_close(rtspclient->client);
-    PDEBUG("client closed");
-    // remove_client(rtspclient->client);
+    // gst_rtsp_client_close(rtspclient->client);
+    // PDEBUG("client closed");
+    pool = gst_rtsp_client_get_session_pool(rtspclient->client);
+    gst_rtsp_session_pool_filter(pool, remove_session, NULL);
+    remove_client(rtspclient->client);
     return 0;
   }
   return -1;
