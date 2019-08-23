@@ -314,6 +314,59 @@ client_closed(GstRTSPClient *client,
   PDEBUG("client was removed");
 }
 
+static int
+sendRenewStream(GstRTSPSession *session, gchar *mountPath)
+{
+    gint matched;
+    GstRTSPSessionMedia *sessionMedia;
+    GstRTSPMedia *RTSPMedia;
+    GstElement *topBin, *dynpay, *rtspsrc;
+    GstPromise *promise;
+
+    sessionMedia = gst_rtsp_session_get_media(session, mountPath, &matched);
+    if (!sessionMedia)
+    {
+        PERROR("Could not find session media");
+        return -1;
+    }
+    RTSPMedia = gst_rtsp_session_media_get_media(sessionMedia);
+    if(!RTSPMedia)
+    {
+        PERROR("Could not find RTSP media");
+        return -1;
+    }
+    topBin = gst_rtsp_media_get_element(RTSPMedia);
+    if (!GST_IS_ELEMENT(topBin))
+    {
+        PERROR("Could not get pipeline");
+        return -1;
+    }
+
+    dynpay = gst_bin_get_by_name((GstBin *)topBin, "dynpay0");
+    if (!GST_IS_ELEMENT(dynpay))
+    {
+        PERROR("Could not get payloader");
+        g_object_unref(topBin);
+        return -1;
+    }
+    rtspsrc = gst_bin_get_by_name((GstBin *)dynpay, "src");
+    if (!GST_IS_ELEMENT(rtspsrc))
+    {
+        PERROR("Could not get rtspsrc");
+        g_object_unref(topBin);
+        g_object_unref(dynpay);
+        return -1;
+    }
+    promise = gst_promise_new();
+    g_signal_emit_by_name(rtspsrc, "set-parameter", "Renew-Stream", "yes", NULL, promise);
+
+    g_object_unref(topBin);
+    g_object_unref(dynpay);
+    g_object_unref(rtspsrc);
+    gst_promise_unref(promise);
+    return 0;
+}
+
 static void
 client_play(GstRTSPClient *client,
             GstRTSPContext *contex,
@@ -338,10 +391,7 @@ client_play(GstRTSPClient *client,
     mediaFactory = gst_rtsp_mount_points_match(rtspMountpoints, mountPath, &matched);
     // find mountpoint with same factory as in context
     PDEBUG("contex: uri %s", gst_rtsp_url_get_request_uri(contex->uri));
-    PDEBUG("contex: factory %p", contex->factory);
     foundMountPoint = g_list_find_custom(serverdata->mountPoints, mediaFactory, findMountPointFactory);
-    g_free(mountPath);
-    g_object_unref(mediaFactory);
     if (foundMountPoint)
     {
       // set mountpoint on client
@@ -349,6 +399,9 @@ client_play(GstRTSPClient *client,
       rtspclient->mountpoint = mountpoint;
       PDEBUG("found mountpoint with path: %s", mountpoint->path);
     }
+    sendRenewStream(contex->session, mountPath);
+    g_free(mountPath);
+    g_object_unref(mediaFactory);
   }
 }
 

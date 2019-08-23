@@ -263,3 +263,15 @@ error:
   g_critical("no bin set");
   return NULL;
 }
+
+int
+sendRenewStream(GstRTSPClient *client, GstRTSPSession *session, const GstRTSPUrl *uri)
+{
+    GstRTSPMessage request = { 0 };
+    gchar *msg = "Renew-Stream: yes";
+    guint msglen = strlen(msg);
+
+    gst_rtsp_message_init_request(&request, GST_RTSP_SET_PARAMETER, (gchar *) uri);
+    gst_rtsp_message_set_body(&request, msg, msglen);
+    gst_rtsp_client_send_message(client, session, &request);
+}

@@ -15,7 +15,7 @@
 # and for our stream.sh script:
 # apt-get install  inotify-tools
 #
-# For reference: there is also an ppa, but it currently seems to only offer gstreamer 1.0, 
+# For reference: there is also an ppa, but it currently seems to only offer gstreamer 1.0,
 # which does not include uvch264src
 # add-apt-repository ppa:gstreamer-developers/ppa
 # apt-get update
@@ -25,7 +25,7 @@
 
 SOURCE=$HOME/gstreamer_sources
 BUILD=$HOME/gstreamer_build
-GST_VERSION=1.14.0
+GST_VERSION=1.16.0
 if [ ! -d "$SOURCE" ]; then
 	mkdir $SOURCE
 fi
@@ -57,22 +57,22 @@ make -j2
 make install
 
 cd ../orc-0.4.28
-./configure --prefix=$BUILD 
+./configure --prefix=$BUILD
 make -j2
 make install
 
 cd ../gst-plugins-base-$GST_VERSION
-export PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH; ./configure --prefix=$BUILD  --enable-orc --with-x 
+export PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH; ./configure --prefix=$BUILD  --enable-orc --with-x
 make -j2
-make install 
+make install
 
 cd ../gst-plugins-good-$GST_VERSION
 export PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH; ./configure  --prefix=$BUILD  --enable-orc --with-libv4l2 --with-x
 make -j2
-make install 
+make install
 
 cd ../gst-plugins-ugly-$GST_VERSION
-export PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH; ./configure  --prefix=$BUILD  --enable-orc 
+export PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH; ./configure  --prefix=$BUILD  --enable-orc
 make -j2
 make install
 
