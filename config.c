@@ -85,13 +85,13 @@ loglevel_from_string(gchar *loglevel)
   if (0 == strcmp(loglevel, "Debug")) {
    ret = LOGLEVEL_DEBUG;
   }
-  if (0 == strcmp(loglevel, "Info")) { 
+  if (0 == strcmp(loglevel, "Info")) {
    ret = LOGLEVEL_INFO;
   }
-  if (0 == strcmp(loglevel, "Warn")) { 
+  if (0 == strcmp(loglevel, "Warn")) {
    ret = LOGLEVEL_WARN;
   }
-   if (0 == strcmp(loglevel, "Error")) { 
+   if (0 == strcmp(loglevel, "Error")) {
    ret = LOGLEVEL_ERROR;
   }
  return ret;
@@ -104,16 +104,26 @@ config_set_value(RtspConfiguration *config, gchar* key,
 {
   if (config != NULL && key != NULL && value != NULL && value[0] != '\0') {
     if (0 == strcmp(key, CALLBACK_URL)) {
-     (void) strcpy(config->callbackUrl, value);
-     } else if (0 == strcmp(key, LOGLEVEL)) {
+      g_free(config->callbackUrl);
+      config->callbackUrl = g_malloc(strlen(value) + 1);
+      (void) strcpy(config->callbackUrl, value);
+    } else if (0 == strcmp(key, LOGLEVEL)) {
       config->loglevel = loglevel_from_string(value);
     } else if (0 == strcmp(key, HTTP_LISTEN_IP)) {
+      g_free(config->httpListenIp);
+      config->httpListenIp = g_malloc(strlen(value) + 1);
       (void) strcpy(config->httpListenIp, value);
     } else if (0 == strcmp(key, HTTP_LISTEN_PORT)) {
+      g_free(config->httpListenPort);
+      config->httpListenPort = g_malloc(strlen(value) + 1);
      (void) strcpy(config->httpListenPort, value);
    } else if (0 == strcmp(key, RTSP_LISTEN_IP)) {
+     g_free(config->rtspListenIp);
+      config->rtspListenIp = g_malloc(strlen(value) + 1);
      (void) strcpy(config->rtspListenIp, value);
    } else if (0 == strcmp(key, RTSP_LISTEN_PORT)) {
+     g_free(config->rtspListenPort);
+      config->rtspListenPort = g_malloc(strlen(value) + 1);
      (void) strcpy(config->rtspListenPort, value);
  } else {
       PWARN("Unknown configuration key %s", key);
@@ -124,7 +134,7 @@ config_set_value(RtspConfiguration *config, gchar* key,
 static gint
 config_file_close(FILE *file)
 {
-  gint ret = 0; 
+  gint ret = 0;
   if (file != NULL && fclose(file) != 0) {
     char buff[256];
     ret = -1;
@@ -238,4 +248,3 @@ getConfig(RtspConfiguration *config, gchar *filename)
 
   return ret;
 }
-

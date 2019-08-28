@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
   ServerData serverdata;
   RtspConfiguration config;
   serverdata.mountPoints = NULL;
+  serverdata.config = NULL;
   int opt = 0;
   gchar *filename = NULL;
   char *manage = "127.0.0.1:7777";
@@ -49,7 +50,9 @@ int main(int argc, char *argv[])
     PERROR("Error while reading config");
     exit(-1);
   }
+  serverdata.config = &config;
   PDEBUG("rtsp_start");
+  PDEBUG("config calback url: %s", config.callbackUrl);
   serverdata.loop = g_main_loop_new(NULL, FALSE);
   serverdata.server = rtsp_start(&serverdata, &config, argc, argv);
   serverdata.soup = httpserver_start(&serverdata, &config);

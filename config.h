@@ -2,7 +2,6 @@
 #define __CONFIG_H__
 
 #include <gst/gst.h>
-#include "server.h"
 #include "log.h"
 
 #define CALLBACK_URL     "Callback URL"

@@ -7,6 +7,7 @@ pkg_search_module(GST_RTSP_SERVER REQUIRED gstreamer-rtsp-server-1.0)
 pkg_search_module(SOUP REQUIRED libsoup-2.4)
 pkg_search_module(JSON REQUIRED json-glib-1.0)
 
+set(CMAKE_BUILD_TYPE Debug)
 #message("GST_RTSP_SERVER_LIBRARIES: " "${GST_LIBRARIES}")
 
 file(GLOB SOURCES "*.c")

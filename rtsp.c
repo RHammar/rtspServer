@@ -9,6 +9,7 @@
 #include "rtsp-media-factory-rtsp-proxy.h"
 #include "mediamonitor.h"
 #include "rtsp_clients.h"
+#include "callbackclient.h"
 
 typedef struct _CustomData
 {
@@ -310,6 +311,7 @@ client_closed(GstRTSPClient *client,
   // clients = get_number_of_clients(server);
   // // -1 since current client is still in the list
   // PDEBUG("client closed, total clients: %d", clients - 1);
+  callback_send_stream_ended(serverdata, get_client(client));
   remove_client(client);
   PDEBUG("client was removed");
 }
@@ -400,6 +402,7 @@ client_play(GstRTSPClient *client,
       PDEBUG("found mountpoint with path: %s", mountpoint->path);
     }
     sendRenewStream(contex->session, mountPath);
+    callback_send_stream_started(serverdata, rtspclient);
     g_free(mountPath);
     g_object_unref(mediaFactory);
   }
